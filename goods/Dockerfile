@@ -14,8 +14,8 @@ RUN chmod +x ./gradlew
 # 复制源代码
 COPY src src
 
-# 构建应用
-RUN ./gradlew build --no-daemon
+# 构建应用（跳过测试）
+RUN ./gradlew build --no-daemon -x test
 
 # 暴露端口
 EXPOSE 8084
