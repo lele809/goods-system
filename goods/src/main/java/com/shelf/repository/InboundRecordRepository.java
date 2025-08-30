@@ -43,8 +43,8 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
      */
     @Query("SELECT i FROM InboundRecord i WHERE " +
            "(:productId IS NULL OR i.productId = :productId) AND " +
-           "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
-           "(:endDate IS NULL OR i.inDate <= :endDate)")
+           "(:startDate IS NULL OR i.inDate >= CAST(:startDate AS date)) AND " +
+           "(:endDate IS NULL OR i.inDate <= CAST(:endDate AS date))")
     Page<InboundRecord> findByMultipleConditions(@Param("productId") Long productId,
                                                 @Param("startDate") LocalDate startDate,
                                                 @Param("endDate") LocalDate endDate,
@@ -56,8 +56,8 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
     @Query("SELECT i FROM InboundRecord i LEFT JOIN Product p ON i.productId = p.id WHERE " +
            "(:productId IS NULL OR i.productId = :productId) AND " +
            "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :productName, '%'))) AND " +
-           "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
-           "(:endDate IS NULL OR i.inDate <= :endDate)")
+           "(:startDate IS NULL OR i.inDate >= CAST(:startDate AS date)) AND " +
+           "(:endDate IS NULL OR i.inDate <= CAST(:endDate AS date))")
     Page<InboundRecord> findByMultipleConditionsWithProductName(@Param("productId") Long productId,
                                                               @Param("productName") String productName,
                                                               @Param("startDate") LocalDate startDate,
