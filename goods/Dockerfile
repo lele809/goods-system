@@ -21,4 +21,4 @@ RUN ./gradlew build --no-daemon -x test
 EXPOSE 8084
 
 # 运行应用
-CMD ["sh", "-c", "java -jar build/libs/*.jar"]
+CMD ["java", "-jar", "build/libs/demo-0.0.1-SNAPSHOT.jar"]
