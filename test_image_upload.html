@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品图片功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #409eff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #2e7bd6;
+        }
+        .success {
+            color: #67c23a;
+            background-color: #f0f9ff;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            color: #f56c6c;
+            background-color: #fef0f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .products-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .product-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+        }
+        .product-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .no-image {
+            width: 100%;
+            height: 150px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ 商品图片功能测试</h1>
+        
+        <!-- 测试添加商品 -->
+        <div class="section">
+            <h3>📝 添加商品测试</h3>
+            <form id="addProductForm">
+                <div class="form-group">
+                    <label for="productImage">商品图片:</label>
+                    <input type="file" id="productImage" accept="image/*">
+                    <img id="imagePreview" class="image-preview" style="display: none;">
+                </div>
+                <div class="form-group">
+                    <label for="productName">商品名称:</label>
+                    <input type="text" id="productName" required>
+                </div>
+                <div class="form-group">
+                    <label for="productSpec">规格:</label>
+                    <input type="text" id="productSpec">
+                </div>
+                <div class="form-group">
+                    <label for="productUnit">单位:</label>
+                    <input type="text" id="productUnit" required>
+                </div>
+                <div class="form-group">
+                    <label for="initialStock">初始库存:</label>
+                    <input type="number" id="initialStock" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="price">单价:</label>
+                    <input type="number" id="price" step="0.01" min="0" required>
+                </div>
+                <button type="submit">💾 添加商品</button>
+            </form>
+        </div>
+
+        <!-- 结果显示 -->
+        <div class="section">
+            <h3>📋 操作结果</h3>
+            <div id="result"></div>
+        </div>
+
+        <!-- 商品列表 -->
+        <div class="section">
+            <h3>🛍️ 商品列表</h3>
+            <button onclick="loadProducts()">🔄 刷新列表</button>
+            <div id="productsList" class="products-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        
+        // 图片预览
+        document.getElementById('productImage').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const preview = document.getElementById('imagePreview');
+            
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.style.display = 'none';
+            }
+        });
+
+        // 添加商品
+        document.getElementById('addProductForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const resultDiv = document.getElementById('result');
+            const imageFile = document.getElementById('productImage').files[0];
+            let imageUrl = '';
+            
+            // 处理图片
+            if (imageFile) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    imageUrl = e.target.result;
+                    await submitProduct(imageUrl);
+                };
+                reader.readAsDataURL(imageFile);
+            } else {
+                await submitProduct(imageUrl);
+            }
+        });
+
+        async function submitProduct(imageUrl) {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                const initialStock = parseInt(document.getElementById('initialStock').value);
+                const price = parseFloat(document.getElementById('price').value);
+                
+                const productData = {
+                    name: document.getElementById('productName').value,
+                    spec: document.getElementById('productSpec').value,
+                    unit: document.getElementById('productUnit').value,
+                    initialStock: initialStock,
+                    price: price,
+                    amount: initialStock * price,
+                    remainingQuantity: initialStock,
+                    imageUrl: imageUrl
+                };
+
+                const response = await fetch(`${API_BASE}/product`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(productData)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `<div class="success">✅ ${result.message}</div>`;
+                    document.getElementById('addProductForm').reset();
+                    document.getElementById('imagePreview').style.display = 'none';
+                    loadProducts(); // 刷新列表
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ ${result.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 网络错误: ${error.message}</div>`;
+            }
+        }
+
+        // 加载商品列表
+        async function loadProducts() {
+            const productsDiv = document.getElementById('productsList');
+            
+            try {
+                const response = await fetch(`${API_BASE}/products?page=0&size=20`);
+                const result = await response.json();
+                
+                if (result.success && result.data.content) {
+                    const products = result.data.content;
+                    productsDiv.innerHTML = products.map(product => `
+                        <div class="product-card">
+                            ${product.imageUrl ? 
+                                `<img src="${product.imageUrl}" alt="${product.name}" class="product-image">` :
+                                `<div class="no-image">无图片</div>`
+                            }
+                            <h4>${product.name}</h4>
+                            <p><strong>规格:</strong> ${product.spec || '无'}</p>
+                            <p><strong>单位:</strong> ${product.unit}</p>
+                            <p><strong>价格:</strong> ¥${product.price}</p>
+                            <p><strong>库存:</strong> ${product.remainingQuantity}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    productsDiv.innerHTML = '<p>暂无商品数据</p>';
+                }
+            } catch (error) {
+                productsDiv.innerHTML = `<p>加载失败: ${error.message}</p>`;
+            }
+        }
+
+        // 页面加载时获取商品列表
+        window.onload = function() {
+            loadProducts();
+        };
+    </script>
+</body>
+</html> 

@@ -1,0 +1,43 @@
+plugins {
+    id 'org.springframework.boot' version '3.0.2'
+    id 'io.spring.dependency-management' version '1.1.0'
+    id 'java'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '17'
+targetCompatibility = '17'
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    // 阿⾥云镜像（优先级最⾼）
+    maven { url 'https://maven.aliyun.com/repository/public/' }
+    maven { url 'https://maven.aliyun.com/repository/spring/' }
+
+    // 华为云镜像（备⽤）
+    maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    // 添加密码加密验证依赖
+    implementation 'org.springframework.security:spring-security-crypto:6.0.1'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.72'
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
