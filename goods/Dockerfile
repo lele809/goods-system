@@ -21,4 +21,4 @@ RUN ./gradlew build --no-daemon -x test
 EXPOSE 8084
 
 # 运行应用
-CMD ["java", "-jar", "build/libs/demo-0.0.1-SNAPSHOT.jar"]
+CMD ["java", "-Xmx512m", "-Xms256m", "-Dspring.profiles.active=prod", "-jar", "build/libs/demo-0.0.1-SNAPSHOT.jar"]
