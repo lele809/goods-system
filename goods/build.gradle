@@ -33,8 +33,9 @@ dependencies {
     implementation 'org.springframework.security:spring-security-crypto:6.0.1'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.72'
     compileOnly 'org.projectlombok:lombok:1.18.30'
-    // 改为PostgreSQL驱动
-    runtimeOnly 'org.postgresql:postgresql'
+    // 数据库驱动 - 支持MySQL和PostgreSQL
+    implementation 'mysql:mysql-connector-java:8.0.33'
+    implementation 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
