@@ -41,7 +41,7 @@ public interface OutboundRecordRepository extends JpaRepository<OutboundRecord, 
     /**
      * 根据多个条件查询出库记录（支持可选参数）
      */
-    @Query("SELECT o FROM OutboundRecord o WHERE " +
+    @Query(value = "SELECT o FROM OutboundRecord o WHERE " +
            "(:productId IS NULL OR o.productId = :productId) AND " +
            "(:name IS NULL OR :name = '' OR LOWER(o.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
            "(:paymentStatus IS NULL OR o.paymentStatus = :paymentStatus) AND " +
@@ -58,7 +58,7 @@ public interface OutboundRecordRepository extends JpaRepository<OutboundRecord, 
     /**
      * 根据多个条件查询出库记录（包括商品名称搜索）
      */
-    @Query("SELECT o FROM OutboundRecord o LEFT JOIN Product p ON o.productId = p.id WHERE " +
+    @Query(value = "SELECT o FROM OutboundRecord o LEFT JOIN Product p ON o.productId = p.id WHERE " +
            "(:productId IS NULL OR o.productId = :productId) AND " +
            "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :productName, '%'))) AND " +
            "(:name IS NULL OR :name = '' OR LOWER(o.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
