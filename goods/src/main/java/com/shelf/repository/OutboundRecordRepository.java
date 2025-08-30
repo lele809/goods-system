@@ -45,8 +45,8 @@ public interface OutboundRecordRepository extends JpaRepository<OutboundRecord, 
            "(:productId IS NULL OR o.productId = :productId) AND " +
            "(:name IS NULL OR :name = '' OR LOWER(o.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
            "(:paymentStatus IS NULL OR o.paymentStatus = :paymentStatus) AND " +
-           "(:startDate IS NULL OR o.outDate >= CAST(:startDate AS date)) AND " +
-           "(:endDate IS NULL OR o.outDate <= CAST(:endDate AS date)) " +
+           "(:startDate IS NULL OR o.outDate >= :startDate) AND " +
+           "(:endDate IS NULL OR o.outDate <= :endDate) " +
            "ORDER BY o.outDate DESC")
     Page<OutboundRecord> findByMultipleConditions(@Param("productId") Long productId,
                                                  @Param("name") String name,
@@ -63,8 +63,8 @@ public interface OutboundRecordRepository extends JpaRepository<OutboundRecord, 
            "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :productName, '%'))) AND " +
            "(:name IS NULL OR :name = '' OR LOWER(o.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
            "(:paymentStatus IS NULL OR o.paymentStatus = :paymentStatus) AND " +
-           "(:startDate IS NULL OR o.outDate >= CAST(:startDate AS date)) AND " +
-           "(:endDate IS NULL OR o.outDate <= CAST(:endDate AS date)) " +
+           "(:startDate IS NULL OR o.outDate >= :startDate) AND " +
+           "(:endDate IS NULL OR o.outDate <= :endDate) " +
            "ORDER BY o.outDate DESC")
     Page<OutboundRecord> findByMultipleConditionsWithProductName(@Param("productId") Long productId,
                                                                 @Param("productName") String productName,
