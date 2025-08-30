@@ -45,7 +45,7 @@ public class Product {
     @Column(name = "remaining_quantity", nullable = false)
     private Integer remainingQuantity = 0;
 
-    @Column(name = "image_url", columnDefinition = "LONGTEXT")
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @CreationTimestamp
