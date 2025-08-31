@@ -1,198 +1,124 @@
-package com.shelf.service;
+package com.shelf.repository;
 
-import com.shelf.dto.InboundRecordDTO;
 import com.shelf.entity.InboundRecord;
-import com.shelf.entity.Product;
-import com.shelf.repository.InboundRecordRepository;
-import com.shelf.repository.ProductRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-
 /**
- * 入库记录业务逻辑服务
+ * 入库记录数据访问接口
  */
-@Service
-@RequiredArgsConstructor
-@Transactional
-public class InboundRecordService {
-
-    private final InboundRecordRepository inboundRecordRepository;
-    private final ProductRepository productRepository;
+@Repository
+public interface InboundRecordRepository extends JpaRepository<InboundRecord, Long> {
 
     /**
-     * 分页查询入库记录
+     * 根据日期范围查询入库记录（分页）
      */
-    @Transactional(readOnly = true)
-    public Page<InboundRecordDTO> getInboundRecords(Long productId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
-        try {
-            Page<InboundRecord> records = inboundRecordRepository.findByMultipleConditions(
-                    productId, startDate, endDate, pageable);
-            
-            return records.map(this::convertToDTO);
-        } catch (Exception e) {
-            throw new RuntimeException("查询入库记录失败: " + e.getMessage(), e);
-        }
-    }
+    Page<InboundRecord> findByInDateBetweenOrderByInDateDesc(
+            LocalDate startDate, LocalDate endDate, Pageable pageable);
 
     /**
-     * 分页查询入库记录（支持商品名称搜索）
+     * 根据商品ID查询入库记录
      */
-    @Transactional(readOnly = true)
-    public Page<InboundRecordDTO> getInboundRecords(Long productId, String productName, LocalDate startDate, LocalDate endDate, Pageable pageable) {
-        try {
-            Page<InboundRecord> records = inboundRecordRepository.findByMultipleConditionsWithProductName(
-                    productId, productName, startDate, endDate, pageable);
-            
-            return records.map(this::convertToDTO);
-        } catch (Exception e) {
-            throw new RuntimeException("查询入库记录失败: " + e.getMessage(), e);
-        }
-    }
+    Page<InboundRecord> findByProductIdOrderByInDateDesc(Long productId, Pageable pageable);
 
     /**
-     * 根据ID获取入库记录
+     * 根据商品ID和日期范围查询入库记录
      */
-    @Transactional(readOnly = true)
-    public InboundRecordDTO getInboundRecordById(Long id) {
-        InboundRecord record = inboundRecordRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("入库记录不存在，ID: " + id));
-        return convertToDTO(record);
-    }
+    @Query("SELECT i FROM InboundRecord i WHERE i.productId = :productId " +
+           "AND i.inDate BETWEEN :startDate AND :endDate ORDER BY i.inDate DESC")
+    Page<InboundRecord> findByProductIdAndDateRange(@Param("productId") Long productId,
+                                                   @Param("startDate") LocalDate startDate,
+                                                   @Param("endDate") LocalDate endDate,
+                                                   Pageable pageable);
 
     /**
-     * 创建入库记录
+     * 根据多个条件查询入库记录（支持可选参数）
      */
-    public InboundRecordDTO createInboundRecord(InboundRecordDTO dto) {
-        // 验证商品是否存在
-        Product product = productRepository.findById(dto.getProductId())
-                .orElseThrow(() -> new RuntimeException("商品不存在，ID: " + dto.getProductId()));
-
-        // 创建入库记录
-        InboundRecord record = new InboundRecord();
-        record.setProductId(dto.getProductId());
-        record.setQuantity(dto.getQuantity());
-        record.setInDate(dto.getInDate());
-        record.setImageUrl(product.getImageUrl());
-
-        // 保存入库记录
-        InboundRecord savedRecord = inboundRecordRepository.save(record);
-
-        // 更新商品库存（增加库存）
-        product.setRemainingQuantity(product.getRemainingQuantity() + dto.getQuantity());
-        productRepository.save(product);
-
-        return convertToDTO(savedRecord);
-    }
+    @Query("SELECT i FROM InboundRecord i WHERE " +
+           "(:productId IS NULL OR i.productId = :productId) AND " +
+           "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
+           "(:endDate IS NULL OR i.inDate <= :endDate)")
+    Page<InboundRecord> findByMultipleConditions(@Param("productId") Long productId,
+                                                @Param("startDate") LocalDate startDate,
+                                                @Param("endDate") LocalDate endDate,
+                                                Pageable pageable);
 
     /**
-     * 更新入库记录
+     * 根据多个条件查询入库记录（包括商品名称搜索）
      */
-    public InboundRecordDTO updateInboundRecord(InboundRecordDTO dto) {
-        // 获取原入库记录
-        InboundRecord existingRecord = inboundRecordRepository.findById(dto.getId())
-                .orElseThrow(() -> new RuntimeException("入库记录不存在，ID: " + dto.getId()));
-
-        // 验证商品是否存在
-        Product product = productRepository.findById(dto.getProductId())
-                .orElseThrow(() -> new RuntimeException("商品不存在，ID: " + dto.getProductId()));
-
-        // 计算库存变化量
-        int quantityDiff = dto.getQuantity() - existingRecord.getQuantity();
-
-        // 更新入库记录
-        existingRecord.setProductId(dto.getProductId());
-        existingRecord.setQuantity(dto.getQuantity());
-        existingRecord.setInDate(dto.getInDate());
-        existingRecord.setImageUrl(product.getImageUrl());
-
-        // 保存更新后的入库记录
-        InboundRecord updatedRecord = inboundRecordRepository.save(existingRecord);
-
-        // 更新商品库存
-        product.setRemainingQuantity(product.getRemainingQuantity() + quantityDiff);
-        productRepository.save(product);
-
-        return convertToDTO(updatedRecord);
-    }
+    @Query("SELECT i FROM InboundRecord i LEFT JOIN Product p ON i.productId = p.id WHERE " +
+           "(:productId IS NULL OR i.productId = :productId) AND " +
+           "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :productName, '%'))) AND " +
+           "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
+           "(:endDate IS NULL OR i.inDate <= :endDate)")
+    Page<InboundRecord> findByMultipleConditionsWithProductName(@Param("productId") Long productId,
+                                                              @Param("productName") String productName,
+                                                              @Param("startDate") LocalDate startDate,
+                                                              @Param("endDate") LocalDate endDate,
+                                                              Pageable pageable);
 
     /**
-     * 删除入库记录
+     * 根据商品ID统计入库总量
      */
-    public void deleteInboundRecord(Long id) {
-        InboundRecord record = inboundRecordRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("入库记录不存在，ID: " + id));
-
-        // 获取关联的商品
-        Product product = productRepository.findById(record.getProductId())
-                .orElseThrow(() -> new RuntimeException("商品不存在，ID: " + record.getProductId()));
-
-        // 更新商品库存（减少库存）
-        product.setRemainingQuantity(product.getRemainingQuantity() - record.getQuantity());
-        productRepository.save(product);
-
-        // 删除入库记录
-        inboundRecordRepository.delete(record);
-    }
+    @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM InboundRecord i WHERE i.productId = :productId")
+    Integer getTotalInboundQuantityByProductId(@Param("productId") Long productId);
 
     /**
-     * 获取入库趋势数据
+     * 根据商品ID和日期范围统计入库总量
      */
-    @Transactional(readOnly = true)
-    public List<Object[]> getInboundTrendData(int days) {
-        LocalDate startDate = LocalDate.now().minusDays(days - 1);
-        return inboundRecordRepository.getInboundTrendData(startDate);
-    }
+    @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM InboundRecord i WHERE i.productId = :productId " +
+           "AND i.inDate BETWEEN :startDate AND :endDate")
+    Integer getTotalInboundQuantityByProductIdAndDateRange(@Param("productId") Long productId,
+                                                          @Param("startDate") LocalDate startDate,
+                                                          @Param("endDate") LocalDate endDate);
 
     /**
-     * 统计入库总量
+     * 根据日期范围统计入库总量
      */
-    @Transactional(readOnly = true)
-    public Integer getTotalInboundQuantity(LocalDate startDate, LocalDate endDate) {
-        return inboundRecordRepository.getTotalInboundQuantityByDateRange(startDate, endDate);
-    }
+    @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM InboundRecord i WHERE i.inDate BETWEEN :startDate AND :endDate")
+    Integer getTotalInboundQuantityByDateRange(@Param("startDate") LocalDate startDate,
+                                              @Param("endDate") LocalDate endDate);
 
     /**
-     * 转换为DTO
+     * 获取入库趋势数据（最近N天）
      */
-    private InboundRecordDTO convertToDTO(InboundRecord record) {
-        try {
-            InboundRecordDTO dto = new InboundRecordDTO();
-            dto.setId(record.getId());
-            dto.setProductId(record.getProductId());
-            dto.setQuantity(record.getQuantity());
-            dto.setInDate(record.getInDate());
-            dto.setImageUrl(record.getImageUrl());
-            dto.setCreatedAt(record.getCreatedAt());
+    @Query("SELECT i.inDate, SUM(i.quantity) FROM InboundRecord i " +
+           "WHERE i.inDate >= :startDate GROUP BY i.inDate ORDER BY i.inDate")
+    List<Object[]> getInboundTrendData(@Param("startDate") LocalDate startDate);
 
-            // 获取商品信息
-            if (record.getProduct() != null) {
-                dto.setProductName(record.getProduct().getName());
-                dto.setProductSpec(record.getProduct().getSpec());
-                dto.setProductUnit(record.getProduct().getUnit());
-                dto.setProductPrice(record.getProduct().getPrice());
-                dto.setTotalAmount(record.getProduct().getPrice().multiply(BigDecimal.valueOf(record.getQuantity())));
-            } else {
-                // 如果关联的商品信息未加载，手动查询
-                productRepository.findById(record.getProductId()).ifPresent(product -> {
-                    dto.setProductName(product.getName());
-                    dto.setProductSpec(product.getSpec());
-                    dto.setProductUnit(product.getUnit());
-                    dto.setProductPrice(product.getPrice());
-                    dto.setTotalAmount(product.getPrice().multiply(BigDecimal.valueOf(record.getQuantity())));
-                });
-            }
+    /**
+     * 统计指定商品截止到指定日期的累计入库数量
+     */
+    @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM InboundRecord i " +
+           "WHERE i.productId = :productId AND i.inDate <= :date")
+    Integer sumQuantityByProductIdBeforeDate(@Param("productId") Long productId, 
+                                           @Param("date") LocalDate date);
 
-            return dto;
-        } catch (Exception e) {
-            throw new RuntimeException("转换入库记录DTO失败: " + e.getMessage(), e);
-        }
-    }
+    /**
+     * 查询所有商品截止到指定日期的累计入库数量
+     */
+    @Query("SELECT i.productId, COALESCE(SUM(i.quantity), 0) FROM InboundRecord i " +
+           "WHERE i.inDate <= :date GROUP BY i.productId")
+    List<Object[]> sumQuantityGroupByProductBeforeDate(@Param("date") LocalDate date);
+
+    /**
+     * 统计指定商品的总入库数量（不限日期）
+     */
+    @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM InboundRecord i " +
+           "WHERE i.productId = :productId")
+    Integer sumQuantityByProductId(@Param("productId") Long productId);
+
+    /**
+     * 批量查询多个商品的入库数量
+     */
+    @Query("SELECT i.productId, COALESCE(SUM(i.quantity), 0) FROM InboundRecord i " +
+           "WHERE i.productId IN :productIds GROUP BY i.productId")
+    List<Object[]> sumQuantityByProductIds(@Param("productIds") List<Long> productIds);
 }
