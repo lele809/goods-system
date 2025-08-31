@@ -2,7 +2,6 @@ package com.shelf.config;
 
 import com.shelf.dto.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.postgresql.util.PSQLException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,47 +25,50 @@ public class DatabaseExceptionHandler {
 
     /**
      * 处理PostgreSQL异常
+     * 使用反射方式检查PostgreSQL异常，避免编译时依赖
      */
-    @ExceptionHandler(PSQLException.class)
-    public ResponseEntity<ApiResponse<Void>> handlePSQLException(PSQLException e) {
+    private ResponseEntity<ApiResponse<Void>> handlePostgreSQLException(SQLException e) {
         log.error("PostgreSQL数据库异常: {}, SQLState: {}", e.getMessage(), e.getSQLState(), e);
         
         String message = "数据库操作失败";
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
         
         // 根据不同的SQL状态码返回不同的错误信息
-        switch (e.getSQLState()) {
-            case "23505": // unique_violation
-                message = "数据已存在，请检查是否重复";
-                status = HttpStatus.CONFLICT;
-                break;
-            case "23503": // foreign_key_violation
-                message = "关联数据不存在，操作失败";
-                status = HttpStatus.BAD_REQUEST;
-                break;
-            case "23514": // check_violation
-                message = "数据格式不符合要求";
-                status = HttpStatus.BAD_REQUEST;
-                break;
-            case "22001": // string_data_right_truncation
-                message = "输入数据过长，请缩短内容";
-                status = HttpStatus.BAD_REQUEST;
-                break;
-            case "42P05": // duplicate_prepared_statement
-                message = "系统繁忙，请稍后重试";
-                status = HttpStatus.SERVICE_UNAVAILABLE;
-                break;
-            case "25P02": // in_failed_sql_transaction
-                message = "事务已中止，请重试操作";
-                status = HttpStatus.SERVICE_UNAVAILABLE;
-                break;
-            case "42P18": // indeterminate_datatype
-                message = "查询参数类型错误";
-                status = HttpStatus.BAD_REQUEST;
-                break;
-            default:
-                log.error("未处理的PostgreSQL错误: SQLState={}, Message={}", e.getSQLState(), e.getMessage());
-                break;
+        String sqlState = e.getSQLState();
+        if (sqlState != null) {
+            switch (sqlState) {
+                case "23505": // unique_violation
+                    message = "数据已存在，请检查是否重复";
+                    status = HttpStatus.CONFLICT;
+                    break;
+                case "23503": // foreign_key_violation
+                    message = "关联数据不存在，操作失败";
+                    status = HttpStatus.BAD_REQUEST;
+                    break;
+                case "23514": // check_violation
+                    message = "数据格式不符合要求";
+                    status = HttpStatus.BAD_REQUEST;
+                    break;
+                case "22001": // string_data_right_truncation
+                    message = "输入数据过长，请缩短内容";
+                    status = HttpStatus.BAD_REQUEST;
+                    break;
+                case "42P05": // duplicate_prepared_statement
+                    message = "系统繁忙，请稍后重试";
+                    status = HttpStatus.SERVICE_UNAVAILABLE;
+                    break;
+                case "25P02": // in_failed_sql_transaction
+                    message = "事务已中止，请重试操作";
+                    status = HttpStatus.SERVICE_UNAVAILABLE;
+                    break;
+                case "42P18": // indeterminate_datatype
+                    message = "查询参数类型错误";
+                    status = HttpStatus.BAD_REQUEST;
+                    break;
+                default:
+                    log.error("未处理的PostgreSQL错误: SQLState={}, Message={}", sqlState, e.getMessage());
+                    break;
+            }
         }
         
         return ResponseEntity.status(status).body(ApiResponse.error(message));
@@ -82,8 +84,8 @@ public class DatabaseExceptionHandler {
         // 检查是否是由PostgreSQL异常引起的
         Throwable cause = e.getCause();
         while (cause != null) {
-            if (cause instanceof PSQLException) {
-                return handlePSQLException((PSQLException) cause);
+            if (isPostgreSQLException(cause)) {
+                return handlePostgreSQLException((SQLException) cause);
             }
             cause = cause.getCause();
         }
@@ -102,8 +104,8 @@ public class DatabaseExceptionHandler {
         // 检查是否是由数据库异常引起的
         Throwable cause = e.getCause();
         while (cause != null) {
-            if (cause instanceof PSQLException) {
-                return handlePSQLException((PSQLException) cause);
+            if (isPostgreSQLException(cause)) {
+                return handlePostgreSQLException((SQLException) cause);
             }
             if (cause instanceof SQLException) {
                 return handleSQLException((SQLException) cause);
@@ -125,8 +127,8 @@ public class DatabaseExceptionHandler {
         // 检查是否是由数据库异常引起的
         Throwable cause = e.getCause();
         while (cause != null) {
-            if (cause instanceof PSQLException) {
-                return handlePSQLException((PSQLException) cause);
+            if (isPostgreSQLException(cause)) {
+                return handlePostgreSQLException((SQLException) cause);
             }
             cause = cause.getCause();
         }
@@ -145,8 +147,8 @@ public class DatabaseExceptionHandler {
         // 检查是否是由数据库异常引起的
         Throwable cause = e.getCause();
         while (cause != null) {
-            if (cause instanceof PSQLException) {
-                return handlePSQLException((PSQLException) cause);
+            if (isPostgreSQLException(cause)) {
+                return handlePostgreSQLException((SQLException) cause);
             }
             cause = cause.getCause();
         }
@@ -206,8 +208,8 @@ public class DatabaseExceptionHandler {
         log.error("SQL异常: {}, SQLState: {}, ErrorCode: {}", e.getMessage(), e.getSQLState(), e.getErrorCode(), e);
         
         // 优先处理特定类型的异常
-        if (e instanceof PSQLException) {
-            return handlePSQLException((PSQLException) e);
+        if (isPostgreSQLException(e)) {
+            return handlePostgreSQLException(e);
         }
         if (e instanceof SQLIntegrityConstraintViolationException) {
             return handleMySQLConstraintViolation((SQLIntegrityConstraintViolationException) e);
@@ -260,8 +262,8 @@ public class DatabaseExceptionHandler {
             // 尝试提取具体的数据库异常
             Throwable cause = e.getCause();
             while (cause != null) {
-                if (cause instanceof PSQLException) {
-                    return handlePSQLException((PSQLException) cause);
+                if (isPostgreSQLException(cause)) {
+                    return handlePostgreSQLException((SQLException) cause);
                 }
                 if (cause instanceof SQLIntegrityConstraintViolationException) {
                     return handleMySQLConstraintViolation((SQLIntegrityConstraintViolationException) cause);
@@ -285,5 +287,12 @@ public class DatabaseExceptionHandler {
         
         // 对于其他运行时异常，不在这里处理
         throw e;
+    }
+
+    /**
+     * 检查是否为PostgreSQL异常（使用类名判断，避免编译时依赖）
+     */
+    private boolean isPostgreSQLException(Throwable e) {
+        return e != null && e.getClass().getName().contains("PSQLException");
     }
 }
