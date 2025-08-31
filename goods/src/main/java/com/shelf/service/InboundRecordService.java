@@ -21,7 +21,6 @@ import java.util.List;
  */
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class InboundRecordService {
 
     private final InboundRecordRepository inboundRecordRepository;
@@ -70,6 +69,7 @@ public class InboundRecordService {
     /**
      * 创建入库记录
      */
+    @Transactional
     public InboundRecordDTO createInboundRecord(InboundRecordDTO dto) {
         // 验证商品是否存在
         Product product = productRepository.findById(dto.getProductId())
@@ -95,6 +95,7 @@ public class InboundRecordService {
     /**
      * 更新入库记录
      */
+    @Transactional
     public InboundRecordDTO updateInboundRecord(InboundRecordDTO dto) {
         // 获取原入库记录
         InboundRecord existingRecord = inboundRecordRepository.findById(dto.getId())

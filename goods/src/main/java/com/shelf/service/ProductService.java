@@ -144,7 +144,7 @@ public class ProductService {
     /**
      * 保存商品（新增或更新）
      */
-    @Transactional(timeout = 10)
+    @Transactional
     public ProductDTO saveProduct(ProductDTO productDTO) {
         Product product;
         
@@ -166,7 +166,7 @@ public class ProductService {
     /**
      * 删除商品
      */
-    @Transactional(timeout = 10)
+    @Transactional
     public void deleteProduct(Long id) {
         if (!productRepository.existsById(id)) {
             throw new RuntimeException("商品不存在，ID: " + id);

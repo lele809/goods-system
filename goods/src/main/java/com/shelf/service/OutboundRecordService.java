@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class OutboundRecordService {
 
     private final OutboundRecordRepository outboundRecordRepository;
@@ -67,6 +66,7 @@ public class OutboundRecordService {
     /**
      * 创建出库记录
      */
+    @Transactional
     public OutboundRecordDTO createOutboundRecord(OutboundRecordDTO dto) {
         // 验证商品是否存在
         Product product = productRepository.findById(dto.getProductId())
@@ -113,6 +113,7 @@ public class OutboundRecordService {
     /**
      * 更新出库记录
      */
+    @Transactional
     public OutboundRecordDTO updateOutboundRecord(OutboundRecordDTO outboundRecordDTO) {
         // 获取原出库记录
         OutboundRecord oldRecord = outboundRecordRepository.findById(outboundRecordDTO.getId())
@@ -164,6 +165,7 @@ public class OutboundRecordService {
     /**
      * 删除出库记录
      */
+    @Transactional
     public void deleteOutboundRecord(Long id) {
         // 获取出库记录
         OutboundRecord record = outboundRecordRepository.findById(id)
