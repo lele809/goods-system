@@ -1,10 +1,22 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
+// 重试配置
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  retryDelay: 1000, // 1秒
+  retryCondition: (error: any) => {
+    // 只对网络错误和超时错误进行重试
+    return error.code === 'ECONNABORTED' || 
+           error.message.includes('timeout') ||
+           (error.response && [502, 503, 504].includes(error.response.status))
+  }
+}
+
 // 创建axios实例
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8084/api',
-  timeout: 10000,
+  timeout: 30000, // 增加到30秒，处理Render免费版冷启动
   headers: {
     'Content-Type': 'application/json'
   }
@@ -14,12 +26,36 @@ const api = axios.create({
 api.interceptors.request.use(
   config => {
     // 可以在这里添加token等认证信息
+    // 添加重试标记
+    config.metadata = { retryCount: 0 }
     return config
   },
   error => {
     return Promise.reject(error)
   }
 )
+
+// 重试函数
+const retryRequest = (error: any) => {
+  const { config } = error
+  
+  if (!config || !config.metadata) {
+    config.metadata = { retryCount: 0 }
+  }
+  
+  config.metadata.retryCount += 1
+  
+  if (config.metadata.retryCount <= RETRY_CONFIG.maxRetries && RETRY_CONFIG.retryCondition(error)) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        console.log(`重试请求 ${config.url}，第 ${config.metadata.retryCount} 次`)
+        resolve(api(config))
+      }, RETRY_CONFIG.retryDelay * config.metadata.retryCount)
+    })
+  }
+  
+  return Promise.reject(error)
+}
 
 // 响应拦截器
 api.interceptors.response.use(
@@ -38,11 +74,46 @@ api.interceptors.response.use(
       return Promise.reject(new Error(data.message || '请求失败'))
     }
   },
-  error => {
-    let message = '网络错误'
-    if (error.response) {
-      message = error.response.data?.message || `请求失败 ${error.response.status}`
+  async error => {
+    // 先尝试重试
+    if (RETRY_CONFIG.retryCondition(error)) {
+      try {
+        return await retryRequest(error)
+      } catch (retryError) {
+        error = retryError
+      }
     }
+    
+    // 重试失败或不需要重试，显示错误信息
+    let message = '网络错误'
+    
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      const retryCount = error.config?.metadata?.retryCount || 0
+      if (retryCount > 0) {
+        message = `请求超时，已重试 ${retryCount} 次仍然失败。服务可能正在启动中，请稍后再试...`
+      } else {
+        message = '请求超时，请稍后重试。服务可能正在启动中...'
+      }
+    } else if (error.response) {
+      const status = error.response.status
+      switch (status) {
+        case 404:
+          message = '接口不存在'
+          break
+        case 500:
+          message = '服务器内部错误'
+          break
+        case 502:
+        case 503:
+          message = '服务暂时不可用，请稍后重试'
+          break
+        default:
+          message = error.response.data?.message || `请求失败 ${status}`
+      }
+    } else if (error.request) {
+      message = '网络连接失败，请检查网络或稍后重试'
+    }
+    
     ElMessage.error(message)
     return Promise.reject(error)
   }
@@ -270,6 +341,27 @@ export const stockAPI = {
       params: { date },
       responseType: 'blob'  // 下载文件需要blob类型
     })
+  }
+}
+
+// 健康检查API
+export const healthAPI = {
+  // 检查服务健康状态
+  checkHealth: () => {
+    return api.get('/health', { timeout: 5000 }) // 较短的超时时间
+  },
+  
+  // 预热服务（对于冷启动场景）
+  warmup: async () => {
+    try {
+      console.log('正在预热服务...')
+      await api.get('/health', { timeout: 45000 }) // 更长的超时时间给冷启动
+      console.log('服务预热完成')
+      return true
+    } catch (error) {
+      console.warn('服务预热失败:', error)
+      return false
+    }
   }
 }
 
