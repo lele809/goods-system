@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class ProductService {
 
     private final ProductRepository productRepository;
@@ -49,11 +48,27 @@ public class ProductService {
             Map<Long, Integer> inboundMap = new HashMap<>();
             Map<Long, Integer> outboundMap = new HashMap<>();
             
-            for (Long productId : productIds) {
-                Integer inbound = inboundRecordRepository.sumQuantityByProductId(productId);
-                Integer outbound = outboundRecordRepository.sumQuantityByProductId(productId);
-                inboundMap.put(productId, inbound != null ? inbound : 0);
-                outboundMap.put(productId, outbound != null ? outbound : 0);
+            if (!productIds.isEmpty()) {
+                // 使用批量查询替代循环查询
+                List<Object[]> inboundData = inboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : inboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    inboundMap.put(productId, quantity);
+                }
+                
+                List<Object[]> outboundData = outboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : outboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    outboundMap.put(productId, quantity);
+                }
+                
+                // 为没有记录的商品设置默认值0
+                for (Long productId : productIds) {
+                    inboundMap.putIfAbsent(productId, 0);
+                    outboundMap.putIfAbsent(productId, 0);
+                }
             }
             
             return products.map(product -> convertToDTOWithCache(product, inboundMap, outboundMap));
@@ -75,11 +90,31 @@ public class ProductService {
             Map<Long, Integer> inboundMap = new HashMap<>();
             Map<Long, Integer> outboundMap = new HashMap<>();
             
-            for (Product product : products) {
-                Integer inbound = inboundRecordRepository.sumQuantityByProductId(product.getId());
-                Integer outbound = outboundRecordRepository.sumQuantityByProductId(product.getId());
-                inboundMap.put(product.getId(), inbound != null ? inbound : 0);
-                outboundMap.put(product.getId(), outbound != null ? outbound : 0);
+            if (!products.isEmpty()) {
+                List<Long> productIds = products.stream()
+                        .map(Product::getId)
+                        .collect(Collectors.toList());
+                
+                // 使用批量查询替代循环查询
+                List<Object[]> inboundData = inboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : inboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    inboundMap.put(productId, quantity);
+                }
+                
+                List<Object[]> outboundData = outboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : outboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    outboundMap.put(productId, quantity);
+                }
+                
+                // 为没有记录的商品设置默认值0
+                for (Long productId : productIds) {
+                    inboundMap.putIfAbsent(productId, 0);
+                    outboundMap.putIfAbsent(productId, 0);
+                }
             }
             
             return products.stream()
@@ -109,6 +144,7 @@ public class ProductService {
     /**
      * 保存商品（新增或更新）
      */
+    @Transactional(timeout = 10)
     public ProductDTO saveProduct(ProductDTO productDTO) {
         Product product;
         
@@ -130,6 +166,7 @@ public class ProductService {
     /**
      * 删除商品
      */
+    @Transactional(timeout = 10)
     public void deleteProduct(Long id) {
         if (!productRepository.existsById(id)) {
             throw new RuntimeException("商品不存在，ID: " + id);
@@ -156,11 +193,31 @@ public class ProductService {
             Map<Long, Integer> inboundMap = new HashMap<>();
             Map<Long, Integer> outboundMap = new HashMap<>();
             
-            for (Product product : products) {
-                Integer inbound = inboundRecordRepository.sumQuantityByProductId(product.getId());
-                Integer outbound = outboundRecordRepository.sumQuantityByProductId(product.getId());
-                inboundMap.put(product.getId(), inbound != null ? inbound : 0);
-                outboundMap.put(product.getId(), outbound != null ? outbound : 0);
+            if (!products.isEmpty()) {
+                List<Long> productIds = products.stream()
+                        .map(Product::getId)
+                        .collect(Collectors.toList());
+                
+                // 使用批量查询替代循环查询
+                List<Object[]> inboundData = inboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : inboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    inboundMap.put(productId, quantity);
+                }
+                
+                List<Object[]> outboundData = outboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : outboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    outboundMap.put(productId, quantity);
+                }
+                
+                // 为没有记录的商品设置默认值0
+                for (Long productId : productIds) {
+                    inboundMap.putIfAbsent(productId, 0);
+                    outboundMap.putIfAbsent(productId, 0);
+                }
             }
             
             return products.stream()
