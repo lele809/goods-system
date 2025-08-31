@@ -7,6 +7,7 @@ import com.shelf.repository.InboundRecordRepository;
 import com.shelf.repository.OutboundRecordRepository;
 import com.shelf.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,9 +23,9 @@ import java.util.stream.Collectors;
 /**
  * 商品业务逻辑服务
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class ProductService {
 
     private final ProductRepository productRepository;
@@ -36,8 +37,45 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO> getProducts(String name, String spec, Pageable pageable) {
-        Page<Product> products = productRepository.findByNameAndSpecContaining(name, spec, pageable);
-        return products.map(this::convertToDTO);
+        try {
+            Page<Product> products = productRepository.findByNameAndSpecContaining(name, spec, pageable);
+            
+            // 批量获取入库和出库数据，避免N+1查询问题
+            List<Long> productIds = products.getContent().stream()
+                    .map(Product::getId)
+                    .collect(Collectors.toList());
+            
+            Map<Long, Integer> inboundMap = new HashMap<>();
+            Map<Long, Integer> outboundMap = new HashMap<>();
+            
+            if (!productIds.isEmpty()) {
+                // 使用批量查询替代循环查询
+                List<Object[]> inboundData = inboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : inboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    inboundMap.put(productId, quantity);
+                }
+                
+                List<Object[]> outboundData = outboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : outboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    outboundMap.put(productId, quantity);
+                }
+                
+                // 为没有记录的商品设置默认值0
+                for (Long productId : productIds) {
+                    inboundMap.putIfAbsent(productId, 0);
+                    outboundMap.putIfAbsent(productId, 0);
+                }
+            }
+            
+            return products.map(product -> convertToDTOWithCache(product, inboundMap, outboundMap));
+        } catch (Exception e) {
+            log.error("分页查询商品列表失败", e);
+            throw new RuntimeException("分页查询商品列表失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -45,8 +83,47 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public List<ProductDTO> getAllProducts() {
-        List<Product> products = productRepository.findAllByOrderByCreatedAtDesc();
-        return products.stream().map(this::convertToDTO).collect(Collectors.toList());
+        try {
+            List<Product> products = productRepository.findAllByOrderByCreatedAtDesc();
+            
+            // 批量获取入库和出库数据，避免N+1查询问题
+            Map<Long, Integer> inboundMap = new HashMap<>();
+            Map<Long, Integer> outboundMap = new HashMap<>();
+            
+            if (!products.isEmpty()) {
+                List<Long> productIds = products.stream()
+                        .map(Product::getId)
+                        .collect(Collectors.toList());
+                
+                // 使用批量查询替代循环查询
+                List<Object[]> inboundData = inboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : inboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    inboundMap.put(productId, quantity);
+                }
+                
+                List<Object[]> outboundData = outboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : outboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    outboundMap.put(productId, quantity);
+                }
+                
+                // 为没有记录的商品设置默认值0
+                for (Long productId : productIds) {
+                    inboundMap.putIfAbsent(productId, 0);
+                    outboundMap.putIfAbsent(productId, 0);
+                }
+            }
+            
+            return products.stream()
+                    .map(product -> convertToDTOWithCache(product, inboundMap, outboundMap))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("获取所有商品失败", e);
+            throw new RuntimeException("获取所有商品失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -54,14 +131,20 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public ProductDTO getProductById(Long id) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("商品不存在，ID: " + id));
-        return convertToDTO(product);
+        try {
+            Product product = productRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("商品不存在，ID: " + id));
+            return convertToDTO(product);
+        } catch (Exception e) {
+            log.error("根据ID获取商品失败，ID: {}", id, e);
+            throw new RuntimeException("根据ID获取商品失败: " + e.getMessage());
+        }
     }
 
     /**
      * 保存商品（新增或更新）
      */
+    @Transactional(timeout = 10)
     public ProductDTO saveProduct(ProductDTO productDTO) {
         Product product;
         
@@ -83,6 +166,7 @@ public class ProductService {
     /**
      * 删除商品
      */
+    @Transactional(timeout = 10)
     public void deleteProduct(Long id) {
         if (!productRepository.existsById(id)) {
             throw new RuntimeException("商品不存在，ID: " + id);
@@ -102,8 +186,47 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public List<ProductDTO> getLowStockProducts(Integer threshold) {
-        List<Product> products = productRepository.findLowStockProducts(threshold);
-        return products.stream().map(this::convertToDTO).collect(Collectors.toList());
+        try {
+            List<Product> products = productRepository.findLowStockProducts(threshold);
+            
+            // 批量获取入库和出库数据，避免N+1查询问题
+            Map<Long, Integer> inboundMap = new HashMap<>();
+            Map<Long, Integer> outboundMap = new HashMap<>();
+            
+            if (!products.isEmpty()) {
+                List<Long> productIds = products.stream()
+                        .map(Product::getId)
+                        .collect(Collectors.toList());
+                
+                // 使用批量查询替代循环查询
+                List<Object[]> inboundData = inboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : inboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    inboundMap.put(productId, quantity);
+                }
+                
+                List<Object[]> outboundData = outboundRecordRepository.sumQuantityByProductIds(productIds);
+                for (Object[] data : outboundData) {
+                    Long productId = (Long) data[0];
+                    Integer quantity = ((Number) data[1]).intValue();
+                    outboundMap.put(productId, quantity);
+                }
+                
+                // 为没有记录的商品设置默认值0
+                for (Long productId : productIds) {
+                    inboundMap.putIfAbsent(productId, 0);
+                    outboundMap.putIfAbsent(productId, 0);
+                }
+            }
+            
+            return products.stream()
+                    .map(product -> convertToDTOWithCache(product, inboundMap, outboundMap))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("查询库存不足商品失败", e);
+            throw new RuntimeException("查询库存不足商品失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -204,7 +327,7 @@ public class ProductService {
         if (!products.isEmpty()) {
             minDate = products.stream()
                     .map(p -> p.getCreatedAt().toLocalDate())
-                    .min(LocalDate::compareTo)
+                    .min((d1, d2) -> d1.compareTo(d2))
                     .orElse(LocalDate.now());
         }
         
@@ -233,10 +356,33 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public Integer getTotalStock() {
-        List<Product> products = productRepository.findAll();
-        return products.stream()
-                .mapToInt(Product::getRemainingQuantity)
-                .sum();
+        try {
+            // 优化：使用数据库聚合查询而不是Java Stream计算
+            List<Product> products = productRepository.findAll();
+            
+            // 批量获取所有商品的入库和出库数据
+            Map<Long, Integer> inboundMap = new HashMap<>();
+            Map<Long, Integer> outboundMap = new HashMap<>();
+            
+            for (Product product : products) {
+                Integer inbound = inboundRecordRepository.sumQuantityByProductId(product.getId());
+                Integer outbound = outboundRecordRepository.sumQuantityByProductId(product.getId());
+                inboundMap.put(product.getId(), inbound != null ? inbound : 0);
+                outboundMap.put(product.getId(), outbound != null ? outbound : 0);
+            }
+            
+            // 计算总库存
+            return products.stream()
+                    .mapToInt(product -> {
+                        Integer inbound = inboundMap.get(product.getId());
+                        Integer outbound = outboundMap.get(product.getId());
+                        return product.getInitialStock() + inbound - outbound;
+                    })
+                    .sum();
+        } catch (Exception e) {
+            log.error("获取库存总量失败", e);
+            throw new RuntimeException("获取库存总量失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -244,16 +390,39 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public BigDecimal getStockValue() {
-        List<Product> products = productRepository.findAll();
-        return products.stream()
-                .map(product -> product.getPrice().multiply(BigDecimal.valueOf(product.getRemainingQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        try {
+            List<Product> products = productRepository.findAll();
+            
+            // 批量获取所有商品的入库和出库数据
+            Map<Long, Integer> inboundMap = new HashMap<>();
+            Map<Long, Integer> outboundMap = new HashMap<>();
+            
+            for (Product product : products) {
+                Integer inbound = inboundRecordRepository.sumQuantityByProductId(product.getId());
+                Integer outbound = outboundRecordRepository.sumQuantityByProductId(product.getId());
+                inboundMap.put(product.getId(), inbound != null ? inbound : 0);
+                outboundMap.put(product.getId(), outbound != null ? outbound : 0);
+            }
+            
+            // 计算总价值
+            return products.stream()
+                    .map(product -> {
+                        Integer inbound = inboundMap.get(product.getId());
+                        Integer outbound = outboundMap.get(product.getId());
+                        Integer currentStock = product.getInitialStock() + inbound - outbound;
+                        return product.getPrice().multiply(BigDecimal.valueOf(Math.max(0, currentStock)));
+                    })
+                    .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
+        } catch (Exception e) {
+            log.error("获取库存价值失败", e);
+            throw new RuntimeException("获取库存价值失败: " + e.getMessage());
+        }
     }
 
     /**
-     * 转换Entity到DTO
+     * 转换Entity到DTO（使用缓存的入库出库数据）
      */
-    private ProductDTO convertToDTO(Product product) {
+    private ProductDTO convertToDTOWithCache(Product product, Map<Long, Integer> inboundMap, Map<Long, Integer> outboundMap) {
         ProductDTO dto = new ProductDTO();
         dto.setId(product.getId());
         dto.setName(product.getName());
@@ -266,9 +435,9 @@ public class ProductService {
         dto.setCreatedAt(product.getCreatedAt());
         dto.setUpdatedAt(product.getUpdatedAt());
         
-        // 计算总入库量、总出库量和当前库存
-        Integer totalInbound = inboundRecordRepository.sumQuantityByProductId(product.getId());
-        Integer totalOutbound = outboundRecordRepository.sumQuantityByProductId(product.getId());
+        // 从缓存中获取入库和出库数据
+        Integer totalInbound = inboundMap.get(product.getId());
+        Integer totalOutbound = outboundMap.get(product.getId());
         
         // 使用和库存管理页面相同的计算公式：初始库存 + 累计入库 - 累计出库
         Integer realTimeStock = product.getInitialStock() + 
@@ -283,6 +452,27 @@ public class ProductService {
                 BigDecimal.ZERO);
         
         return dto;
+    }
+
+    /**
+     * 转换Entity到DTO（单个商品查询时使用）
+     */
+    private ProductDTO convertToDTO(Product product) {
+        try {
+            // 单个商品查询时直接查询数据库
+            Integer totalInbound = inboundRecordRepository.sumQuantityByProductId(product.getId());
+            Integer totalOutbound = outboundRecordRepository.sumQuantityByProductId(product.getId());
+            
+            Map<Long, Integer> inboundMap = new HashMap<>();
+            Map<Long, Integer> outboundMap = new HashMap<>();
+            inboundMap.put(product.getId(), totalInbound != null ? totalInbound : 0);
+            outboundMap.put(product.getId(), totalOutbound != null ? totalOutbound : 0);
+            
+            return convertToDTOWithCache(product, inboundMap, outboundMap);
+        } catch (Exception e) {
+            log.error("转换商品数据失败，商品ID: {}", product.getId(), e);
+            throw new RuntimeException("转换商品数据失败: " + e.getMessage());
+        }
     }
 
     /**

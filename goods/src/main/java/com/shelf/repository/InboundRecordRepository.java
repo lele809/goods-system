@@ -114,4 +114,11 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
     @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM InboundRecord i " +
            "WHERE i.productId = :productId")
     Integer sumQuantityByProductId(@Param("productId") Long productId);
+
+    /**
+     * 批量查询多个商品的入库数量
+     */
+    @Query("SELECT i.productId, COALESCE(SUM(i.quantity), 0) FROM InboundRecord i " +
+           "WHERE i.productId IN :productIds GROUP BY i.productId")
+    List<Object[]> sumQuantityByProductIds(@Param("productIds") List<Long> productIds);
 }
