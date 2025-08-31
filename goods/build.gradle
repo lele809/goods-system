@@ -51,9 +51,9 @@ dependencies {
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
     
-    // 数据库驱动 - 支持MySQL和PostgreSQL
-    implementation 'mysql:mysql-connector-java:8.0.33'
-    implementation 'org.postgresql:postgresql'
+    // 数据库驱动 - 支持MySQL和PostgreSQL  
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly 'org.postgresql:postgresql'
     
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

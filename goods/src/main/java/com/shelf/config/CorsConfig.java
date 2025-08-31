@@ -19,8 +19,10 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // 允许所有域名进行跨域调用
-        config.addAllowedOriginPattern("*");
+        // 明确允许的域名（生产环境安全配置）
+        config.addAllowedOrigin("https://goods-system-frontend.onrender.com");
+        config.addAllowedOrigin("http://localhost:5173");
+        config.addAllowedOrigin("http://localhost:3000");
         
         // 允许所有请求头
         config.addAllowedHeader("*");
