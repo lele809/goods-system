@@ -4,6 +4,18 @@ plugins {
     id 'java'
 }
 
+// Java编译器配置
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-parameters']
+}
+
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '17'
@@ -32,11 +44,17 @@ dependencies {
     // 添加密码加密验证依赖
     implementation 'org.springframework.security:spring-security-crypto:6.0.1'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.72'
-    compileOnly 'org.projectlombok:lombok:1.18.30'
+    
+    // Lombok配置 - 需要同时配置compileOnly和annotationProcessor
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    
     // 数据库驱动 - 支持MySQL和PostgreSQL
     implementation 'mysql:mysql-connector-java:8.0.33'
     implementation 'org.postgresql:postgresql'
-    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
