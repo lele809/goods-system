@@ -813,7 +813,7 @@ const startAutoRefresh = () => {
     } catch (error) {
       console.error('自动刷新失败:', error)
     }
-  }, 30000) // 每30秒刷新一次
+  }, 15000) // 每15秒刷新一次，提高数据实时性
 }
 
 // 组件挂载时获取数据

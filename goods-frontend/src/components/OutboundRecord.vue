@@ -452,7 +452,7 @@ const loadProductOptions = async () => {
 const searchProducts = (query: string) => {
   if (query) {
     productSearchLoading.value = true
-    // 模拟异步搜索，实际可以调用API
+    // 优化搜索响应速度
     setTimeout(() => {
       filteredProductOptions.value = productOptions.value.filter((product: any) => {
         const searchText = query.toLowerCase()
@@ -460,7 +460,7 @@ const searchProducts = (query: string) => {
                (product.spec && product.spec.toLowerCase().includes(searchText))
       })
       productSearchLoading.value = false
-    }, 200)
+    }, 100)
   } else {
     // 如果搜索为空，显示所有商品
     filteredProductOptions.value = productOptions.value
@@ -474,10 +474,10 @@ const onProductSearchInput = () => {
     clearTimeout(searchTimer)
   }
   
-  // 延迟300ms搜索，避免频繁请求
+  // 延迟150ms搜索，提高响应速度
   searchTimer = setTimeout(() => {
     handleSearch()
-  }, 300) as unknown as number
+  }, 150) as unknown as number
 }
 
 const handleSearch = () => {

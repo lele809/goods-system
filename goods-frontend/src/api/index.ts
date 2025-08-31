@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 // 重试配置
 const RETRY_CONFIG = {
   maxRetries: 3,
-  retryDelay: 1000, // 1秒
+  retryDelay: 300, // 300毫秒，减少延迟提高响应速度
   retryCondition: (error: any) => {
     // 只对网络错误和超时错误进行重试
     return error.code === 'ECONNABORTED' || 
