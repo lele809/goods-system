@@ -184,12 +184,15 @@ public class OutboundRecordService {
     }
 
     /**
-     * 获取出库趋势数据
+     * 获取出库趋势数据 - 临时移除事务注解测试
      */
-    @Transactional(readOnly = true)
     public List<Object[]> getOutboundTrendData(Integer days) {
-        LocalDate startDate = LocalDate.now().minusDays(days);
-        return outboundRecordRepository.findOutboundTrendData(startDate);
+        try {
+            LocalDate startDate = LocalDate.now().minusDays(days);
+            return outboundRecordRepository.findOutboundTrendData(startDate);
+        } catch (Exception e) {
+            throw new RuntimeException("查询出库趋势数据失败: " + e.getMessage(), e);
+        }
     }
 
     /**
