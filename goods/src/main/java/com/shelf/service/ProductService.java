@@ -327,7 +327,7 @@ public class ProductService {
         if (!products.isEmpty()) {
             minDate = products.stream()
                     .map(p -> p.getCreatedAt().toLocalDate())
-                    .min(LocalDate::compareTo)
+                    .min((d1, d2) -> d1.compareTo(d2))
                     .orElse(LocalDate.now());
         }
         
@@ -412,7 +412,7 @@ public class ProductService {
                         Integer currentStock = product.getInitialStock() + inbound - outbound;
                         return product.getPrice().multiply(BigDecimal.valueOf(Math.max(0, currentStock)));
                     })
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
         } catch (Exception e) {
             log.error("获取库存价值失败", e);
             throw new RuntimeException("获取库存价值失败: " + e.getMessage());
