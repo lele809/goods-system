@@ -244,7 +244,7 @@
           width="50" 
           :reserve-selection="true"
         />
-        <el-table-column prop="productId" label="ID" width="100" align="center" sortable :sort-orders="['ascending', 'descending']">
+        <el-table-column prop="productId" label="ID" width="100" align="center" sortable :sort-orders="['ascending', 'descending']" :sort-method="(a, b) => a.productId - b.productId">
           <template #default="{ row }">
             <el-tag type="info" size="small" effect="plain" style="color: black; border-color: black;">#{{ row.productId }}</el-tag>
           </template>
@@ -289,12 +289,16 @@
             <el-tag size="small" effect="dark">{{ row.unit }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="库存信息" width="200" align="center">
+        <el-table-column label="库存信息" width="250" align="center">
           <template #default="{ row }">
             <div class="stock-info">
               <div class="stock-item">
                 <span class="stock-label">初始:</span>
                 <span class="stock-value">{{ row.initialStock }}</span>
+              </div>
+              <div class="stock-item">
+                <span class="stock-label">入库:</span>
+                <span class="stock-value inbound">{{ row.totalInbound || 0 }}</span>
               </div>
               <div class="stock-item">
                 <span class="stock-label">出库:</span>
@@ -763,10 +767,10 @@ const exportStock = async () => {
 const exportFilteredData = () => {
   // 生成CSV内容
   let csvContent = '\uFEFF' // BOM for UTF-8
-  csvContent += '商品名称,规格,单位,初始库存,累计出库,库存数量,单价,库存总价值,统计日期\n'
+  csvContent += '商品名称,规格,单位,初始库存,累计入库,累计出库,库存数量,单价,库存总价值,统计日期\n'
   
   filteredStockList.value.forEach(item => {
-    csvContent += `${item.productName || ''},${item.spec || ''},${item.unit || ''},${item.initialStock},${item.totalOutbound},${item.stockQuantity},${item.unitPrice.toFixed(2)},${item.totalValue.toFixed(2)},${item.stockDate}\n`
+    csvContent += `${item.productName || ''},${item.spec || ''},${item.unit || ''},${item.initialStock},${item.totalInbound || 0},${item.totalOutbound},${item.stockQuantity},${item.unitPrice.toFixed(2)},${item.totalValue.toFixed(2)},${item.stockDate}\n`
   })
   
   // 创建下载
@@ -801,10 +805,10 @@ const exportSelected = () => {
     
     // 生成CSV内容
     let csvContent = '\uFEFF' // BOM for UTF-8
-    csvContent += '商品名称,规格,单位,初始库存,累计出库,库存数量,单价,库存总价值,统计日期\n'
+    csvContent += '商品名称,规格,单位,初始库存,累计入库,累计出库,库存数量,单价,库存总价值,统计日期\n'
     
     selectedRows.value.forEach(item => {
-      csvContent += `${item.productName || ''},${item.spec || ''},${item.unit || ''},${item.initialStock},${item.totalOutbound},${item.stockQuantity},${item.unitPrice.toFixed(2)},${item.totalValue.toFixed(2)},${item.stockDate}\n`
+      csvContent += `${item.productName || ''},${item.spec || ''},${item.unit || ''},${item.initialStock},${item.totalInbound || 0},${item.totalOutbound},${item.stockQuantity},${item.unitPrice.toFixed(2)},${item.totalValue.toFixed(2)},${item.stockDate}\n`
     })
     
     // 创建下载
@@ -1218,6 +1222,11 @@ onMounted(async () => {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.8);
   transition: all 0.3s ease;
+}
+
+.stock-value.inbound {
+  color: #27ae60;
+  background: rgba(39, 174, 96, 0.1);
 }
 
 .stock-value.outbound {
