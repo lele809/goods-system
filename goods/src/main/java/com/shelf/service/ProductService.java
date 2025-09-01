@@ -81,8 +81,9 @@ public class ProductService {
     }
 
     /**
-     * 获取所有商品（用于导出）
+     * 获取所有商品（用于导出）- 添加缓存优化
      */
+    @Cacheable(value = "products", key = "'allProducts'")
     @Transactional(readOnly = true)
     public List<ProductDTO> getAllProducts() {
         try {

@@ -1,16 +1,25 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { useCacheStore } from '../stores/cache'
+
+// 请求队列管理 - 防止重复请求
+const pendingRequests = new Map<string, Promise<any>>()
 
 // 重试配置
 const RETRY_CONFIG = {
   maxRetries: 2, // 优化：减少重试次数
-  retryDelay: 200, // 优化：减少重试延迟到200毫秒
+  retryDelay: 300, // 优化：增加到300ms，避免频繁重试
   retryCondition: (error: any) => {
     // 只对网络错误和超时错误进行重试
     return error.code === 'ECONNABORTED' || 
            error.message.includes('timeout') ||
            (error.response && [502, 503, 504].includes(error.response.status))
   }
+}
+
+// 创建请求去重key
+const createRequestKey = (config: any) => {
+  return `${config.method}-${config.url}-${JSON.stringify(config.params || {})}`
 }
 
 // 创建axios实例
@@ -151,9 +160,34 @@ export const productAPI = {
     return api.get('/products', { params })
   },
   
-  // 获取所有商品（不分页）
+  // 获取所有商品（不分页）- 带缓存优化
   getAllProducts: () => {
-    return api.get('/products/all')
+    const cacheStore = useCacheStore()
+    const cached = cacheStore.getProductOptions()
+    
+    if (cached) {
+      return Promise.resolve(cached)
+    }
+    
+    const requestKey = 'products-all'
+    
+    // 检查是否有正在进行的请求
+    if (pendingRequests.has(requestKey)) {
+      return pendingRequests.get(requestKey)!
+    }
+    
+    const request = api.get('/products/all').then(response => {
+      // 缓存结果
+      cacheStore.setProductOptions(response)
+      pendingRequests.delete(requestKey)
+      return response
+    }).catch(error => {
+      pendingRequests.delete(requestKey)
+      throw error
+    })
+    
+    pendingRequests.set(requestKey, request)
+    return request
   },
   
   // 根据ID获取商品详情

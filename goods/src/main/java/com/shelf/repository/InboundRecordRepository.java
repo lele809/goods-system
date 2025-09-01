@@ -80,14 +80,17 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
                                         @Param("endDate") String endDate);
 
     /**
-     * 根据多个条件查询入库记录（包括商品名称搜索）- PostgreSQL兼容的原生SQL版本
+     * 根据多个条件查询入库记录（包括商品名称搜索）- PostgreSQL兼容的原生SQL版本，优化JOIN性能
      */
-    @Query(value = "SELECT i.* FROM inbound_record i " +
+    @Query(value = "SELECT i.*, p.name as product_name, p.spec as product_spec, " +
+           "p.unit as product_unit, p.price as product_price, p.image_url as product_image " +
+           "FROM inbound_record i " +
            "LEFT JOIN product p ON i.product_id = p.id WHERE " +
            "(:productId IS NULL OR i.product_id = CAST(:productId AS BIGINT)) AND " +
            "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER('%' || :productName || '%')) AND " +
            "(:startDate IS NULL OR i.in_date >= CAST(:startDate AS DATE)) AND " +
-           "(:endDate IS NULL OR i.in_date <= CAST(:endDate AS DATE))", 
+           "(:endDate IS NULL OR i.in_date <= CAST(:endDate AS DATE)) " +
+           "ORDER BY i.created_at DESC", 
            nativeQuery = true)
     Page<InboundRecord> findByMultipleConditionsWithProductName(@Param("productId") Long productId,
                                                               @Param("productName") String productName,

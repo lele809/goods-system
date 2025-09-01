@@ -652,10 +652,10 @@ const onProductSearchInput = () => {
     clearTimeout(searchTimer)
   }
   
-  // 延迟150ms搜索，提高响应速度
+  // 优化：增加到500ms搜索防抖，减少频繁请求
   searchTimer = setTimeout(() => {
     loadInboundRecords()
-  }, 150) as unknown as number
+  }, 500) as unknown as number
 }
 
 // 初始化
