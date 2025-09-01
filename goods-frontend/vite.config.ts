@@ -16,13 +16,7 @@ export default defineConfig({
       }
     },
     chunkSizeWarningLimit: 1000,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true
-      }
-    }
+    minify: 'esbuild' // 使用esbuild替代terser，构建更快
   },
   preview: {
     host: '0.0.0.0',

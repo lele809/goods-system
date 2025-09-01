@@ -7,7 +7,14 @@ import {
   ElPagination, ElDialog, ElMessage, ElMessageBox, ElSelect, ElOption, ElDatePicker,
   ElRadioGroup, ElRadio, ElInputNumber, ElTag, ElDropdown, ElDropdownMenu,
   ElDropdownItem, ElContainer, ElHeader, ElAside, ElMain, ElMenu, ElMenuItem,
-  ElIcon, ElResult, ElLoading
+  ElIcon, ElResult, ElLoading, ElUpload, ElSwitch, ElCheckbox, ElCheckboxGroup,
+  ElTooltip, ElPopover, ElBadge, ElProgress, ElSteps, ElStep, ElTabs, ElTabPane,
+  ElCollapse, ElCollapseItem, ElDivider, ElImage, ElEmpty, ElSkeleton,
+  ElSkeletonItem, ElAvatar, ElRate, ElSlider, ElColorPicker, ElTransfer,
+  ElTree, ElCascader, ElTimePicker, ElTimeSelect, ElAutocomplete, ElTextarea,
+  ElDescriptions, ElDescriptionsItem, ElCalendar, ElBackTop, ElDrawer,
+  ElPopconfirm, ElBreadcrumb, ElBreadcrumbItem, ElAlert, ElNotification,
+  ElInfiniteScroll, ElAffix, ElAnchor, ElAnchorLink, ElSpace
 } from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
@@ -58,7 +65,14 @@ const components = [
   ElPagination, ElDialog, ElSelect, ElOption, ElDatePicker,
   ElRadioGroup, ElRadio, ElInputNumber, ElTag, ElDropdown, ElDropdownMenu,
   ElDropdownItem, ElContainer, ElHeader, ElAside, ElMain, ElMenu, ElMenuItem,
-  ElIcon, ElResult, ElLoading
+  ElIcon, ElResult, ElLoading, ElUpload, ElSwitch, ElCheckbox, ElCheckboxGroup,
+  ElTooltip, ElPopover, ElBadge, ElProgress, ElSteps, ElStep, ElTabs, ElTabPane,
+  ElCollapse, ElCollapseItem, ElDivider, ElImage, ElEmpty, ElSkeleton,
+  ElSkeletonItem, ElAvatar, ElRate, ElSlider, ElColorPicker, ElTransfer,
+  ElTree, ElCascader, ElTimePicker, ElTimeSelect, ElAutocomplete, ElTextarea,
+  ElDescriptions, ElDescriptionsItem, ElCalendar, ElBackTop, ElDrawer,
+  ElPopconfirm, ElBreadcrumb, ElBreadcrumbItem, ElAlert, ElNotification,
+  ElInfiniteScroll, ElAffix, ElAnchor, ElAnchorLink, ElSpace
 ]
 
 components.forEach(component => {
