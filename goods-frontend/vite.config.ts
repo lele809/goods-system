@@ -4,17 +4,8 @@ import vue from '@vitejs/plugin-vue'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue()],
-  // 优化构建配置
+  // 简化构建配置，避免模块初始化顺序问题
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'element-plus': ['element-plus'],
-          'vue-vendor': ['vue', 'vue-router', 'pinia'],
-          'utils': ['axios']
-        }
-      }
-    },
     chunkSizeWarningLimit: 1000,
     minify: 'esbuild' // 使用esbuild替代terser，构建更快
   },
