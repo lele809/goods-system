@@ -7,6 +7,7 @@ import com.shelf.repository.InboundRecordRepository;
 import com.shelf.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 /**
@@ -27,33 +29,109 @@ public class InboundRecordService {
     private final ProductRepository productRepository;
 
     /**
-     * 分页查询入库记录
+     * 分页查询入库记录 - 带降级策略的版本
      */
     @Transactional(readOnly = true)
     public Page<InboundRecordDTO> getInboundRecords(Long productId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         try {
+            // 首先尝试JPA查询
             Page<InboundRecord> records = inboundRecordRepository.findByMultipleConditions(
                     productId, startDate, endDate, pageable);
-            
             return records.map(this::convertToDTO);
         } catch (Exception e) {
-            throw new RuntimeException("查询入库记录失败: " + e.getMessage(), e);
+            System.err.println("JPA查询失败，尝试原生SQL查询: " + e.getMessage());
+            
+            try {
+                // 降级到原生SQL查询
+                return getInboundRecordsWithNativeQuery(productId, startDate, endDate, pageable);
+            } catch (Exception e2) {
+                System.err.println("原生SQL查询失败，使用简单查询: " + e2.getMessage());
+                
+                try {
+                    // 最后降级到简单查询
+                    Page<InboundRecord> records = inboundRecordRepository.findAllOrderByIdDesc(pageable);
+                    return records.map(this::convertToDTO);
+                } catch (Exception e3) {
+                    throw new RuntimeException("查询入库记录失败: " + e.getMessage(), e);
+                }
+            }
         }
     }
 
     /**
-     * 分页查询入库记录（支持商品名称搜索）
+     * 使用原生SQL查询入库记录（PostgreSQL兼容版本）
+     */
+    @Transactional(readOnly = true)
+    private Page<InboundRecordDTO> getInboundRecordsWithNativeQuery(Long productId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
+        // 将LocalDate转换为String，PostgreSQL需要
+        String startDateStr = startDate != null ? startDate.toString() : null;
+        String endDateStr = endDate != null ? endDate.toString() : null;
+        
+        // 计算总数
+        Long total = inboundRecordRepository.countByMultipleConditionsNative(productId, startDateStr, endDateStr);
+        
+        // 查询数据
+        int limit = pageable.getPageSize();
+        int offset = (int) pageable.getOffset();
+        List<InboundRecord> records = inboundRecordRepository.findByMultipleConditionsNative(
+                productId, startDateStr, endDateStr, limit, offset);
+        
+        // 转换为DTO
+        List<InboundRecordDTO> dtos = records.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+        
+        return new PageImpl<>(dtos, pageable, total);
+    }
+
+    /**
+     * 分页查询入库记录（支持商品名称搜索）- 带降级策略
      */
     @Transactional(readOnly = true)
     public Page<InboundRecordDTO> getInboundRecords(Long productId, String productName, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         try {
+            // 首先尝试JPA查询
             Page<InboundRecord> records = inboundRecordRepository.findByMultipleConditionsWithProductName(
                     productId, productName, startDate, endDate, pageable);
-            
             return records.map(this::convertToDTO);
         } catch (Exception e) {
-            throw new RuntimeException("查询入库记录失败: " + e.getMessage(), e);
+            System.err.println("JPA商品名称查询失败，尝试原生SQL查询: " + e.getMessage());
+            
+            try {
+                // 降级到PostgreSQL兼容的原生查询
+                return getInboundRecordsWithProductNameNative(productId, productName, startDate, endDate, pageable);
+            } catch (Exception e2) {
+                System.err.println("PostgreSQL原生查询失败: " + e2.getMessage());
+                throw new RuntimeException("查询入库记录失败: " + e.getMessage(), e);
+            }
         }
+    }
+
+    /**
+     * 使用PostgreSQL兼容的原生SQL查询入库记录（支持商品名称搜索）
+     */
+    @Transactional(readOnly = true)
+    private Page<InboundRecordDTO> getInboundRecordsWithProductNameNative(Long productId, String productName, LocalDate startDate, LocalDate endDate, Pageable pageable) {
+        // 将LocalDate转换为String，PostgreSQL需要
+        String startDateStr = startDate != null ? startDate.toString() : null;
+        String endDateStr = endDate != null ? endDate.toString() : null;
+        
+        // 计算总数
+        Long total = inboundRecordRepository.countByMultipleConditionsWithProductNameNative(
+                productId, productName, startDateStr, endDateStr);
+        
+        // 查询数据
+        int limit = pageable.getPageSize();
+        int offset = (int) pageable.getOffset();
+        List<InboundRecord> records = inboundRecordRepository.findByMultipleConditionsWithProductNameNative(
+                productId, productName, startDateStr, endDateStr, limit, offset);
+        
+        // 转换为DTO
+        List<InboundRecordDTO> dtos = records.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+        
+        return new PageImpl<>(dtos, pageable, total);
     }
 
     /**

@@ -39,30 +39,111 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
                                                    Pageable pageable);
 
     /**
-     * 根据多个条件查询入库记录（支持可选参数）
+     * 根据多个条件查询入库记录（支持可选参数）- 生产环境兼容版本
      */
     @Query("SELECT i FROM InboundRecord i WHERE " +
            "(:productId IS NULL OR i.productId = :productId) AND " +
            "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
-           "(:endDate IS NULL OR i.inDate <= :endDate)")
+           "(:endDate IS NULL OR i.inDate <= :endDate) " +
+           "ORDER BY i.id DESC")
     Page<InboundRecord> findByMultipleConditions(@Param("productId") Long productId,
                                                 @Param("startDate") LocalDate startDate,
                                                 @Param("endDate") LocalDate endDate,
                                                 Pageable pageable);
 
     /**
-     * 根据多个条件查询入库记录（包括商品名称搜索）
+     * 根据多个条件查询入库记录（PostgreSQL兼容的原生SQL版本）
+     */
+    @Query(value = "SELECT * FROM inbound_record i WHERE " +
+           "(:productId IS NULL OR i.product_id = :productId) AND " +
+           "(:startDate IS NULL OR i.in_date >= CAST(:startDate AS DATE)) AND " +
+           "(:endDate IS NULL OR i.in_date <= CAST(:endDate AS DATE)) " +
+           "ORDER BY i.id DESC " +
+           "LIMIT :limit OFFSET :offset", 
+           nativeQuery = true)
+    List<InboundRecord> findByMultipleConditionsNative(@Param("productId") Long productId,
+                                                      @Param("startDate") String startDate,
+                                                      @Param("endDate") String endDate,
+                                                      @Param("limit") int limit,
+                                                      @Param("offset") int offset);
+
+    /**
+     * 计算原生查询的总数（PostgreSQL兼容）
+     */
+    @Query(value = "SELECT COUNT(*) FROM inbound_record i WHERE " +
+           "(:productId IS NULL OR i.product_id = :productId) AND " +
+           "(:startDate IS NULL OR i.in_date >= CAST(:startDate AS DATE)) AND " +
+           "(:endDate IS NULL OR i.in_date <= CAST(:endDate AS DATE))", 
+           nativeQuery = true)
+    Long countByMultipleConditionsNative(@Param("productId") Long productId,
+                                        @Param("startDate") String startDate,
+                                        @Param("endDate") String endDate);
+
+    /**
+     * 根据多个条件查询入库记录（包括商品名称搜索）- JPA版本
      */
     @Query("SELECT i FROM InboundRecord i LEFT JOIN Product p ON i.productId = p.id WHERE " +
            "(:productId IS NULL OR i.productId = :productId) AND " +
            "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :productName, '%'))) AND " +
            "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
-           "(:endDate IS NULL OR i.inDate <= :endDate)")
+           "(:endDate IS NULL OR i.inDate <= :endDate) ORDER BY i.inDate DESC")
     Page<InboundRecord> findByMultipleConditionsWithProductName(@Param("productId") Long productId,
                                                               @Param("productName") String productName,
                                                               @Param("startDate") LocalDate startDate,
                                                               @Param("endDate") LocalDate endDate,
                                                               Pageable pageable);
+
+    /**
+     * PostgreSQL兼容的商品名称搜索（原生SQL版本）
+     */
+    @Query(value = "SELECT i.* FROM inbound_record i " +
+           "LEFT JOIN product p ON i.product_id = p.id WHERE " +
+           "(:productId IS NULL OR i.product_id = :productId) AND " +
+           "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER('%' || :productName || '%')) AND " +
+           "(:startDate IS NULL OR i.in_date >= CAST(:startDate AS DATE)) AND " +
+           "(:endDate IS NULL OR i.in_date <= CAST(:endDate AS DATE)) " +
+           "ORDER BY i.id DESC " +
+           "LIMIT :limit OFFSET :offset", 
+           nativeQuery = true)
+    List<InboundRecord> findByMultipleConditionsWithProductNameNative(@Param("productId") Long productId,
+                                                                     @Param("productName") String productName,
+                                                                     @Param("startDate") String startDate,
+                                                                     @Param("endDate") String endDate,
+                                                                     @Param("limit") int limit,
+                                                                     @Param("offset") int offset);
+
+    /**
+     * PostgreSQL兼容的商品名称搜索计数（原生SQL版本）
+     */
+    @Query(value = "SELECT COUNT(*) FROM inbound_record i " +
+           "LEFT JOIN product p ON i.product_id = p.id WHERE " +
+           "(:productId IS NULL OR i.product_id = :productId) AND " +
+           "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER('%' || :productName || '%')) AND " +
+           "(:startDate IS NULL OR i.in_date >= CAST(:startDate AS DATE)) AND " +
+           "(:endDate IS NULL OR i.in_date <= CAST(:endDate AS DATE))", 
+           nativeQuery = true)
+    Long countByMultipleConditionsWithProductNameNative(@Param("productId") Long productId,
+                                                       @Param("productName") String productName,
+                                                       @Param("startDate") String startDate,
+                                                       @Param("endDate") String endDate);
+
+    /**
+     * 根据商品名称查询商品ID列表
+     */
+    @Query("SELECT p.id FROM Product p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :productName, '%'))")
+    List<Long> findProductIdsByNameContaining(@Param("productName") String productName);
+
+    /**
+     * 根据商品ID列表和条件查询入库记录
+     */
+    @Query("SELECT i FROM InboundRecord i WHERE " +
+           "i.productId IN :productIds AND " +
+           "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
+           "(:endDate IS NULL OR i.inDate <= :endDate) ORDER BY i.inDate DESC")
+    Page<InboundRecord> findByProductIdsAndDateRange(@Param("productIds") List<Long> productIds,
+                                                    @Param("startDate") LocalDate startDate,
+                                                    @Param("endDate") LocalDate endDate,
+                                                    Pageable pageable);
 
     /**
      * 根据商品ID统计入库总量
@@ -121,4 +202,18 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
     @Query("SELECT i.productId, COALESCE(SUM(i.quantity), 0) FROM InboundRecord i " +
            "WHERE i.productId IN :productIds GROUP BY i.productId")
     List<Object[]> sumQuantityByProductIds(@Param("productIds") List<Long> productIds);
+
+    /**
+     * 简单查询所有入库记录（无条件，用于调试）
+     */
+    @Query("SELECT i FROM InboundRecord i ORDER BY i.id DESC")
+    Page<InboundRecord> findAllOrderByIdDesc(Pageable pageable);
+
+    /**
+     * 根据日期范围查询（简化版）
+     */
+    @Query("SELECT i FROM InboundRecord i WHERE i.inDate BETWEEN :startDate AND :endDate ORDER BY i.inDate DESC")
+    Page<InboundRecord> findByDateRangeSimple(@Param("startDate") LocalDate startDate,
+                                             @Param("endDate") LocalDate endDate,
+                                             Pageable pageable);
 }
