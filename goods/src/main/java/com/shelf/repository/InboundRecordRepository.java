@@ -32,20 +32,19 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
      * 根据商品ID和日期范围查询入库记录
      */
     @Query("SELECT i FROM InboundRecord i WHERE i.productId = :productId " +
-           "AND i.inDate BETWEEN :startDate AND :endDate ORDER BY i.inDate DESC")
+           "AND i.inDate BETWEEN :startDate AND :endDate")
     Page<InboundRecord> findByProductIdAndDateRange(@Param("productId") Long productId,
                                                    @Param("startDate") LocalDate startDate,
                                                    @Param("endDate") LocalDate endDate,
                                                    Pageable pageable);
 
     /**
-     * 根据多个条件查询入库记录（支持可选参数）- 生产环境兼容版本
+     * 根据多个条件查询入库记录（支持可选参数）- 移除ORDER BY避免冲突
      */
     @Query("SELECT i FROM InboundRecord i WHERE " +
            "(:productId IS NULL OR i.productId = :productId) AND " +
            "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
-           "(:endDate IS NULL OR i.inDate <= :endDate) " +
-           "ORDER BY i.id DESC")
+           "(:endDate IS NULL OR i.inDate <= :endDate)")
     Page<InboundRecord> findByMultipleConditions(@Param("productId") Long productId,
                                                 @Param("startDate") LocalDate startDate,
                                                 @Param("endDate") LocalDate endDate,
@@ -80,13 +79,13 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
                                         @Param("endDate") String endDate);
 
     /**
-     * 根据多个条件查询入库记录（包括商品名称搜索）- JPA版本
+     * 根据多个条件查询入库记录（包括商品名称搜索）- JPA版本，移除ORDER BY避免冲突
      */
     @Query("SELECT i FROM InboundRecord i LEFT JOIN Product p ON i.productId = p.id WHERE " +
            "(:productId IS NULL OR i.productId = :productId) AND " +
            "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :productName, '%'))) AND " +
            "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
-           "(:endDate IS NULL OR i.inDate <= :endDate) ORDER BY i.inDate DESC")
+           "(:endDate IS NULL OR i.inDate <= :endDate)")
     Page<InboundRecord> findByMultipleConditionsWithProductName(@Param("productId") Long productId,
                                                               @Param("productName") String productName,
                                                               @Param("startDate") LocalDate startDate,
@@ -204,15 +203,15 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
     List<Object[]> sumQuantityByProductIds(@Param("productIds") List<Long> productIds);
 
     /**
-     * 简单查询所有入库记录（无条件，用于调试）
+     * 简单查询所有入库记录（无条件，用于调试）- 移除ORDER BY避免冲突
      */
-    @Query("SELECT i FROM InboundRecord i ORDER BY i.id DESC")
+    @Query("SELECT i FROM InboundRecord i")
     Page<InboundRecord> findAllOrderByIdDesc(Pageable pageable);
 
     /**
-     * 根据日期范围查询（简化版）
+     * 根据日期范围查询（简化版）- 移除ORDER BY避免冲突
      */
-    @Query("SELECT i FROM InboundRecord i WHERE i.inDate BETWEEN :startDate AND :endDate ORDER BY i.inDate DESC")
+    @Query("SELECT i FROM InboundRecord i WHERE i.inDate BETWEEN :startDate AND :endDate")
     Page<InboundRecord> findByDateRangeSimple(@Param("startDate") LocalDate startDate,
                                              @Param("endDate") LocalDate endDate,
                                              Pageable pageable);

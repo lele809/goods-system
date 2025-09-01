@@ -37,7 +37,7 @@ public class InboundRecordController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "inDate") String sort,
+            @RequestParam(defaultValue = "id") String sort,
             @RequestParam(defaultValue = "desc") String direction) {
         
         try {
