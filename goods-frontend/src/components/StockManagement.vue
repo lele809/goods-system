@@ -235,16 +235,17 @@
         border
         row-key="productId"
         @selection-change="handleSelectionChange"
+        @sort-change="handleSortChange"
         :row-class-name="getRowClassName"
         class="beautiful-table"
-        :default-sort="{ prop: 'productId', order: 'ascending' }"
+        :default-sort="{ prop: sortState.prop, order: sortState.order }"
       >
         <el-table-column 
           type="selection" 
           width="50" 
           :reserve-selection="true"
         />
-        <el-table-column prop="productId" label="ID" width="100" align="center" sortable :sort-orders="['ascending', 'descending']" :sort-method="(a, b) => a.productId - b.productId">
+        <el-table-column prop="productId" label="ID" width="100" align="center" sortable :sort-orders="['ascending', 'descending']">
           <template #default="{ row }">
             <el-tag type="info" size="small" effect="plain" style="color: black; border-color: black;">#{{ row.productId }}</el-tag>
           </template>
@@ -274,7 +275,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="商品信息" width="200" align="center">
+        <el-table-column prop="productName" label="商品信息" width="200" align="center" sortable>
           <template #default="{ row }">
             <div class="product-info">
               <div class="product-name">{{ row.productName }}</div>
@@ -307,7 +308,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="stockQuantity" label="当前库存" width="200" align="center">
+        <el-table-column prop="stockQuantity" label="当前库存" width="200" align="center" sortable>
           <template #default="scope">
             <div class="current-stock">
               <el-tag 
@@ -321,7 +322,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="价格信息" width="200" align="center">
+        <el-table-column prop="totalValue" label="价格信息" width="200" align="center" sortable>
           <template #default="{ row }">
             <div class="price-info">
               <div class="price-item">
@@ -480,6 +481,12 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const pageSizes = [10, 20, 50, 100]
 
+// 排序相关数据
+const sortState = ref({
+  prop: 'productId',
+  order: 'ascending'
+})
+
 // 筛选表单
 const filterForm = ref({
   productName: '',
@@ -530,6 +537,34 @@ const filteredStockList = computed(() => {
   // 按最小库存数量筛选
   if (filterForm.value.minStock !== undefined && filterForm.value.minStock !== null) {
     result = result.filter(item => item.stockQuantity >= filterForm.value.minStock!)
+  }
+  
+  // 应用排序
+  if (sortState.value.prop && sortState.value.order) {
+    result = [...result].sort((a, b) => {
+      const prop = sortState.value.prop
+      let aValue = a[prop]
+      let bValue = b[prop]
+      
+      // 处理数值类型
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortState.value.order === 'ascending' ? aValue - bValue : bValue - aValue
+      }
+      
+      // 处理字符串类型
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortState.value.order === 'ascending' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue)
+      }
+      
+      // 处理其他类型，转换为字符串比较
+      aValue = String(aValue || '')
+      bValue = String(bValue || '')
+      return sortState.value.order === 'ascending' 
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue)
+    })
   }
   
   return result
@@ -675,6 +710,33 @@ const handleDateChange = (value: string) => {
   // 可以在这里添加其他日期变化时需要执行的逻辑
 }
 
+// 排序变化处理方法
+const handleSortChange = ({ prop, order }: { prop: string, order: string | null }) => {
+  console.log('排序变化:', { prop, order })
+  
+  if (order === null) {
+    // 取消排序，恢复默认排序（按ID升序）
+    sortState.value = {
+      prop: 'productId',
+      order: 'ascending'
+    }
+  } else {
+    sortState.value = {
+      prop: prop || 'productId',
+      order: order || 'ascending'
+    }
+  }
+  
+  // 重置到第一页
+  currentPage.value = 1
+  
+  // 清空选中状态
+  selectedRows.value = []
+  if (tableRef.value) {
+    tableRef.value.clearSelection()
+  }
+}
+
 // 方法
 const queryStock = async () => {
   loading.value = true
@@ -684,8 +746,12 @@ const queryStock = async () => {
     if ((response as any).success) {
       stockList.value = (response as any).data || []
       
-      // 重置分页和选中状态
+      // 重置分页、排序和选中状态
       currentPage.value = 1
+      sortState.value = {
+        prop: 'productId',
+        order: 'ascending'
+      }
       selectedRows.value = []
       if (tableRef.value) {
         tableRef.value.clearSelection()

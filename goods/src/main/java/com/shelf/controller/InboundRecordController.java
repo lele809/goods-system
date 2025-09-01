@@ -27,6 +27,22 @@ public class InboundRecordController {
     private final InboundRecordService inboundRecordService;
 
     /**
+     * 将Java字段名映射为数据库列名
+     */
+    private String mapFieldToColumn(String fieldName) {
+        switch (fieldName) {
+            case "createdAt":
+                return "created_at";
+            case "inDate":
+                return "in_date";
+            case "productId":
+                return "product_id";
+            default:
+                return fieldName;
+        }
+    }
+
+    /**
      * 分页查询入库记录
      */
     @GetMapping("/inbounds")
@@ -41,9 +57,12 @@ public class InboundRecordController {
             @RequestParam(defaultValue = "desc") String direction) {
         
         try {
+            // 字段名映射：将Java字段名转换为数据库列名
+            String dbColumnName = mapFieldToColumn(sort);
+            
             Sort.Direction sortDirection = "asc".equalsIgnoreCase(direction) ? 
                     Sort.Direction.ASC : Sort.Direction.DESC;
-            Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
+            Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, dbColumnName));
             
             // 如果有商品名称搜索，使用支持商品名称的查询方法
             Page<InboundRecordDTO> records;
