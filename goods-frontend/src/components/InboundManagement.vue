@@ -442,7 +442,7 @@ const loadInboundRecords = async () => {
         ElMessage.info(`未找到包含 "${searchForm.productName}" 的入库记录`)
       }
       if (searchForm.inDate && inboundList.value.length === 0) {
-        ElMessage.info(`${searchForm.inDate} 当天无入库记录`)
+        ElMessage.info(`${searchForm.inDate} 当天无入库信息`)
       }
     }
   } catch (error) {

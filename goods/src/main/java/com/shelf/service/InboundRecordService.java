@@ -29,17 +29,21 @@ public class InboundRecordService {
     private final ProductRepository productRepository;
 
     /**
-     * 分页查询入库记录 - 带降级策略的版本
+     * 分页查询入库记录 - PostgreSQL兼容版本
      */
     @Transactional(readOnly = true)
     public Page<InboundRecordDTO> getInboundRecords(Long productId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         try {
-            // 首先尝试JPA查询
+            // 转换日期为String，PostgreSQL需要明确的类型
+            String startDateStr = startDate != null ? startDate.toString() : null;
+            String endDateStr = endDate != null ? endDate.toString() : null;
+            
+            // 使用PostgreSQL兼容的查询
             Page<InboundRecord> records = inboundRecordRepository.findByMultipleConditions(
-                    productId, startDate, endDate, pageable);
+                    productId, startDateStr, endDateStr, pageable);
             return records.map(this::convertToDTO);
         } catch (Exception e) {
-            System.err.println("JPA查询失败，尝试原生SQL查询: " + e.getMessage());
+            System.err.println("PostgreSQL兼容查询失败，尝试原生SQL查询: " + e.getMessage());
             
             try {
                 // 降级到原生SQL查询
@@ -85,23 +89,27 @@ public class InboundRecordService {
     }
 
     /**
-     * 分页查询入库记录（支持商品名称搜索）- 带降级策略
+     * 分页查询入库记录（支持商品名称搜索）- PostgreSQL兼容版本
      */
     @Transactional(readOnly = true)
     public Page<InboundRecordDTO> getInboundRecords(Long productId, String productName, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         try {
-            // 首先尝试JPA查询
+            // 转换日期为String，PostgreSQL需要明确的类型
+            String startDateStr = startDate != null ? startDate.toString() : null;
+            String endDateStr = endDate != null ? endDate.toString() : null;
+            
+            // 使用PostgreSQL兼容的商品名称搜索查询
             Page<InboundRecord> records = inboundRecordRepository.findByMultipleConditionsWithProductName(
-                    productId, productName, startDate, endDate, pageable);
+                    productId, productName, startDateStr, endDateStr, pageable);
             return records.map(this::convertToDTO);
         } catch (Exception e) {
-            System.err.println("JPA商品名称查询失败，尝试原生SQL查询: " + e.getMessage());
+            System.err.println("PostgreSQL商品名称查询失败，尝试备用查询: " + e.getMessage());
             
             try {
-                // 降级到PostgreSQL兼容的原生查询
+                // 降级到原生SQL查询方法
                 return getInboundRecordsWithProductNameNative(productId, productName, startDate, endDate, pageable);
             } catch (Exception e2) {
-                System.err.println("PostgreSQL原生查询失败: " + e2.getMessage());
+                System.err.println("备用查询失败: " + e2.getMessage());
                 throw new RuntimeException("查询入库记录失败: " + e.getMessage(), e);
             }
         }

@@ -39,15 +39,16 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
                                                    Pageable pageable);
 
     /**
-     * 根据多个条件查询入库记录（支持可选参数）- 移除ORDER BY避免冲突
+     * 根据多个条件查询入库记录（PostgreSQL兼容 - 使用原生SQL避免类型推断问题）
      */
-    @Query("SELECT i FROM InboundRecord i WHERE " +
-           "(:productId IS NULL OR i.productId = :productId) AND " +
-           "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
-           "(:endDate IS NULL OR i.inDate <= :endDate)")
+    @Query(value = "SELECT * FROM inbound_record i WHERE " +
+           "(:productId IS NULL OR i.product_id = CAST(:productId AS BIGINT)) AND " +
+           "(:startDate IS NULL OR i.in_date >= CAST(:startDate AS DATE)) AND " +
+           "(:endDate IS NULL OR i.in_date <= CAST(:endDate AS DATE))", 
+           nativeQuery = true)
     Page<InboundRecord> findByMultipleConditions(@Param("productId") Long productId,
-                                                @Param("startDate") LocalDate startDate,
-                                                @Param("endDate") LocalDate endDate,
+                                                @Param("startDate") String startDate,
+                                                @Param("endDate") String endDate,
                                                 Pageable pageable);
 
     /**
@@ -79,17 +80,19 @@ public interface InboundRecordRepository extends JpaRepository<InboundRecord, Lo
                                         @Param("endDate") String endDate);
 
     /**
-     * 根据多个条件查询入库记录（包括商品名称搜索）- JPA版本，移除ORDER BY避免冲突
+     * 根据多个条件查询入库记录（包括商品名称搜索）- PostgreSQL兼容的原生SQL版本
      */
-    @Query("SELECT i FROM InboundRecord i LEFT JOIN Product p ON i.productId = p.id WHERE " +
-           "(:productId IS NULL OR i.productId = :productId) AND " +
-           "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :productName, '%'))) AND " +
-           "(:startDate IS NULL OR i.inDate >= :startDate) AND " +
-           "(:endDate IS NULL OR i.inDate <= :endDate)")
+    @Query(value = "SELECT i.* FROM inbound_record i " +
+           "LEFT JOIN product p ON i.product_id = p.id WHERE " +
+           "(:productId IS NULL OR i.product_id = CAST(:productId AS BIGINT)) AND " +
+           "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER('%' || :productName || '%')) AND " +
+           "(:startDate IS NULL OR i.in_date >= CAST(:startDate AS DATE)) AND " +
+           "(:endDate IS NULL OR i.in_date <= CAST(:endDate AS DATE))", 
+           nativeQuery = true)
     Page<InboundRecord> findByMultipleConditionsWithProductName(@Param("productId") Long productId,
                                                               @Param("productName") String productName,
-                                                              @Param("startDate") LocalDate startDate,
-                                                              @Param("endDate") LocalDate endDate,
+                                                              @Param("startDate") String startDate,
+                                                              @Param("endDate") String endDate,
                                                               Pageable pageable);
 
     /**
