@@ -29,49 +29,50 @@ public interface OutboundRecordRepository extends JpaRepository<OutboundRecord, 
     Page<OutboundRecord> findByProductIdOrderByOutDateDesc(Long productId, Pageable pageable);
 
     /**
-     * 根据商品ID和日期范围查询出库记录
+     * 根据商品ID和日期范围查询出库记录 - 移除ORDER BY避免冲突
      */
     @Query("SELECT o FROM OutboundRecord o WHERE o.productId = :productId " +
-           "AND o.outDate BETWEEN :startDate AND :endDate ORDER BY o.outDate DESC")
+           "AND o.outDate BETWEEN :startDate AND :endDate")
     Page<OutboundRecord> findByProductIdAndDateRange(@Param("productId") Long productId,
                                                     @Param("startDate") LocalDate startDate,
                                                     @Param("endDate") LocalDate endDate,
                                                     Pageable pageable);
 
     /**
-     * 根据多个条件查询出库记录（支持可选参数）
+     * 根据多个条件查询出库记录（PostgreSQL兼容的原生SQL版本）
      */
-    @Query(value = "SELECT o FROM OutboundRecord o WHERE " +
-           "(:productId IS NULL OR o.productId = :productId) AND " +
-           "(:name IS NULL OR :name = '' OR LOWER(o.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
-           "(:paymentStatus IS NULL OR o.paymentStatus = :paymentStatus) AND " +
-           "(:startDate IS NULL OR o.outDate >= :startDate) AND " +
-           "(:endDate IS NULL OR o.outDate <= :endDate) " +
-           "ORDER BY o.outDate DESC")
+    @Query(value = "SELECT * FROM outbound_record o WHERE " +
+           "(:productId IS NULL OR o.product_id = CAST(:productId AS BIGINT)) AND " +
+           "(:name IS NULL OR :name = '' OR LOWER(o.name) LIKE LOWER('%' || :name || '%')) AND " +
+           "(:paymentStatus IS NULL OR o.payment_status = CAST(:paymentStatus AS INTEGER)) AND " +
+           "(:startDate IS NULL OR o.out_date >= CAST(:startDate AS DATE)) AND " +
+           "(:endDate IS NULL OR o.out_date <= CAST(:endDate AS DATE))", 
+           nativeQuery = true)
     Page<OutboundRecord> findByMultipleConditions(@Param("productId") Long productId,
                                                  @Param("name") String name,
                                                  @Param("paymentStatus") Integer paymentStatus,
-                                                 @Param("startDate") LocalDate startDate,
-                                                 @Param("endDate") LocalDate endDate,
+                                                 @Param("startDate") String startDate,
+                                                 @Param("endDate") String endDate,
                                                  Pageable pageable);
 
     /**
-     * 根据多个条件查询出库记录（包括商品名称搜索）
+     * 根据多个条件查询出库记录（包括商品名称搜索）- PostgreSQL兼容的原生SQL版本
      */
-    @Query(value = "SELECT o FROM OutboundRecord o LEFT JOIN Product p ON o.productId = p.id WHERE " +
-           "(:productId IS NULL OR o.productId = :productId) AND " +
-           "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :productName, '%'))) AND " +
-           "(:name IS NULL OR :name = '' OR LOWER(o.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
-           "(:paymentStatus IS NULL OR o.paymentStatus = :paymentStatus) AND " +
-           "(:startDate IS NULL OR o.outDate >= :startDate) AND " +
-           "(:endDate IS NULL OR o.outDate <= :endDate) " +
-           "ORDER BY o.outDate DESC")
+    @Query(value = "SELECT o.* FROM outbound_record o " +
+           "LEFT JOIN product p ON o.product_id = p.id WHERE " +
+           "(:productId IS NULL OR o.product_id = CAST(:productId AS BIGINT)) AND " +
+           "(:productName IS NULL OR :productName = '' OR LOWER(p.name) LIKE LOWER('%' || :productName || '%')) AND " +
+           "(:name IS NULL OR :name = '' OR LOWER(o.name) LIKE LOWER('%' || :name || '%')) AND " +
+           "(:paymentStatus IS NULL OR o.payment_status = CAST(:paymentStatus AS INTEGER)) AND " +
+           "(:startDate IS NULL OR o.out_date >= CAST(:startDate AS DATE)) AND " +
+           "(:endDate IS NULL OR o.out_date <= CAST(:endDate AS DATE))", 
+           nativeQuery = true)
     Page<OutboundRecord> findByMultipleConditionsWithProductName(@Param("productId") Long productId,
                                                                 @Param("productName") String productName,
                                                                 @Param("name") String name,
                                                                 @Param("paymentStatus") Integer paymentStatus,
-                                                                @Param("startDate") LocalDate startDate,
-                                                                @Param("endDate") LocalDate endDate,
+                                                                @Param("startDate") String startDate,
+                                                                @Param("endDate") String endDate,
                                                                 Pageable pageable);
 
     /**

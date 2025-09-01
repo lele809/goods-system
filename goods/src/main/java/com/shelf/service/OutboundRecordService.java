@@ -27,40 +27,58 @@ public class OutboundRecordService {
     private final ProductRepository productRepository;
 
     /**
-     * 分页查询出库记录
+     * 分页查询出库记录 - PostgreSQL兼容版本
      */
     @Transactional(readOnly = true)
     public Page<OutboundRecordDTO> getOutboundRecords(Long productId, String name, Integer paymentStatus,
                                                      LocalDate startDate, LocalDate endDate, Pageable pageable) {
-        // 统一使用多条件查询方法
-        Page<OutboundRecord> records = outboundRecordRepository.findByMultipleConditions(
-                productId, 
-                name != null && !name.trim().isEmpty() ? name.trim() : null,
-                paymentStatus,
-                startDate, 
-                endDate, 
-                pageable);
-        
-        return records.map(this::convertToDTO);
+        try {
+            // 转换日期为String，PostgreSQL需要明确的类型
+            String startDateStr = startDate != null ? startDate.toString() : null;
+            String endDateStr = endDate != null ? endDate.toString() : null;
+            
+            // 使用PostgreSQL兼容的查询
+            Page<OutboundRecord> records = outboundRecordRepository.findByMultipleConditions(
+                    productId, 
+                    name != null && !name.trim().isEmpty() ? name.trim() : null,
+                    paymentStatus,
+                    startDateStr, 
+                    endDateStr, 
+                    pageable);
+            
+            return records.map(this::convertToDTO);
+        } catch (Exception e) {
+            System.err.println("PostgreSQL出库记录查询失败: " + e.getMessage());
+            throw new RuntimeException("查询出库记录失败: " + e.getMessage(), e);
+        }
     }
 
     /**
-     * 分页查询出库记录（支持商品名称搜索）
+     * 分页查询出库记录（支持商品名称搜索）- PostgreSQL兼容版本
      */
     @Transactional(readOnly = true)
     public Page<OutboundRecordDTO> getOutboundRecords(Long productId, String productName, String name, Integer paymentStatus,
                                                      LocalDate startDate, LocalDate endDate, Pageable pageable) {
-        // 使用支持商品名称搜索的多条件查询方法
-        Page<OutboundRecord> records = outboundRecordRepository.findByMultipleConditionsWithProductName(
-                productId,
-                productName != null && !productName.trim().isEmpty() ? productName.trim() : null,
-                name != null && !name.trim().isEmpty() ? name.trim() : null,
-                paymentStatus,
-                startDate, 
-                endDate, 
-                pageable);
-        
-        return records.map(this::convertToDTO);
+        try {
+            // 转换日期为String，PostgreSQL需要明确的类型
+            String startDateStr = startDate != null ? startDate.toString() : null;
+            String endDateStr = endDate != null ? endDate.toString() : null;
+            
+            // 使用PostgreSQL兼容的商品名称搜索查询
+            Page<OutboundRecord> records = outboundRecordRepository.findByMultipleConditionsWithProductName(
+                    productId,
+                    productName != null && !productName.trim().isEmpty() ? productName.trim() : null,
+                    name != null && !name.trim().isEmpty() ? name.trim() : null,
+                    paymentStatus,
+                    startDateStr, 
+                    endDateStr, 
+                    pageable);
+            
+            return records.map(this::convertToDTO);
+        } catch (Exception e) {
+            System.err.println("PostgreSQL出库记录商品名称查询失败: " + e.getMessage());
+            throw new RuntimeException("查询出库记录失败: " + e.getMessage(), e);
+        }
     }
 
     /**
