@@ -1,21 +1,8 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import { createPinia } from 'pinia'
-// 优化：按需引入ElementPlus核心组件，减少打包体积
-import {
-  ElButton, ElInput, ElForm, ElFormItem, ElCard, ElRow, ElCol, ElTable, ElTableColumn,
-  ElPagination, ElDialog, ElMessage, ElMessageBox, ElSelect, ElOption, ElDatePicker,
-  ElRadioGroup, ElRadio, ElInputNumber, ElTag, ElDropdown, ElDropdownMenu,
-  ElDropdownItem, ElContainer, ElHeader, ElAside, ElMain, ElMenu, ElMenuItem,
-  ElIcon, ElResult, ElLoading, ElUpload, ElSwitch, ElCheckbox, ElCheckboxGroup,
-  ElTooltip, ElPopover, ElBadge, ElProgress, ElSteps, ElStep, ElTabs, ElTabPane,
-  ElCollapse, ElCollapseItem, ElDivider, ElImage, ElEmpty, ElSkeleton,
-  ElSkeletonItem, ElAvatar, ElRate, ElSlider, ElColorPicker, ElTransfer,
-  ElTree, ElCascader, ElTimePicker, ElTimeSelect, ElAutocomplete, ElTextarea,
-  ElDescriptions, ElDescriptionsItem, ElCalendar, ElBackTop, ElDrawer,
-  ElPopconfirm, ElBreadcrumb, ElBreadcrumbItem, ElAlert, ElNotification,
-  ElInfiniteScroll, ElAffix, ElAnchor, ElAnchorLink, ElSpace
-} from 'element-plus'
+// 修复：回退到全量引入ElementPlus，确保所有组件都可用
+import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
@@ -59,32 +46,10 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
 
-// 优化：按需注册ElementPlus组件
-const components = [
-  ElButton, ElInput, ElForm, ElFormItem, ElCard, ElRow, ElCol, ElTable, ElTableColumn,
-  ElPagination, ElDialog, ElSelect, ElOption, ElDatePicker,
-  ElRadioGroup, ElRadio, ElInputNumber, ElTag, ElDropdown, ElDropdownMenu,
-  ElDropdownItem, ElContainer, ElHeader, ElAside, ElMain, ElMenu, ElMenuItem,
-  ElIcon, ElResult, ElLoading, ElUpload, ElSwitch, ElCheckbox, ElCheckboxGroup,
-  ElTooltip, ElPopover, ElBadge, ElProgress, ElSteps, ElStep, ElTabs, ElTabPane,
-  ElCollapse, ElCollapseItem, ElDivider, ElImage, ElEmpty, ElSkeleton,
-  ElSkeletonItem, ElAvatar, ElRate, ElSlider, ElColorPicker, ElTransfer,
-  ElTree, ElCascader, ElTimePicker, ElTimeSelect, ElAutocomplete, ElTextarea,
-  ElDescriptions, ElDescriptionsItem, ElCalendar, ElBackTop, ElDrawer,
-  ElPopconfirm, ElBreadcrumb, ElBreadcrumbItem, ElAlert, ElNotification,
-  ElInfiniteScroll, ElAffix, ElAnchor, ElAnchorLink, ElSpace
-]
-
-components.forEach(component => {
-  app.component(component.name, component)
-})
-
-// 注册全局属性
-app.config.globalProperties.$message = ElMessage
-app.config.globalProperties.$messageBox = ElMessageBox
-app.config.globalProperties.$loading = ElLoading.service
-
 app.use(createPinia())
 app.use(router)
+app.use(ElementPlus, {
+  locale: zhCn,
+})
 
 app.mount('#app')
