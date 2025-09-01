@@ -390,7 +390,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
-import api, { productAPI, outboundRecordAPI, stockAPI } from '../api'
+import api, { productAPI, outboundRecordAPI, stockAPI, statsAPI } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { RefreshRight, Search, Plus, Remove, Download, List, Upload, Warning, Clock, Goods, Box, Van, Coin, CircleCheck, Calendar, Timer, WarningFilled, QuestionFilled } from '@element-plus/icons-vue'
 
@@ -553,26 +553,49 @@ const handleKeypress = (event: KeyboardEvent) => {
   }
 }
 
-// 获取统计数据
+// 获取统计数据 - 优化版本：一次性获取所有统计数据
 const fetchStats = async () => {
   try {
-    // 并行获取所有统计数据
-    const [productsResponse, stockResponse, outboundResponse, valueResponse] = await Promise.all([
-      api.get('/products/count'),
-      api.get('/products/stock/total'), 
-      api.get('/outbound/today'),
-      api.get('/products/stock/value')
-    ])
+    // 优化：使用新的统计API，一次性获取所有数据，减少请求数量
+    const response = await statsAPI.getDashboardStats()
     
-    // 更新统计数据
-    stats.value.totalProducts = productsResponse.data || 0
-    stats.value.totalStock = stockResponse.data || 0
-    stats.value.todayOutbound = outboundResponse.data || 0
-    stats.value.stockValue = valueResponse.data || 0
+    if (response.data) {
+      // 更新统计数据
+      stats.value.totalProducts = response.data.totalProducts || 0
+      stats.value.totalStock = response.data.totalStock || 0
+      stats.value.todayOutbound = response.data.todayOutbound || 0
+      stats.value.stockValue = response.data.stockValue || 0
+    }
     
   } catch (error) {
     console.error('获取统计数据失败:', error)
-    ElMessage.error('获取统计数据失败')
+    // 降级方案：如果新API失败，使用原有的分别请求方式
+    try {
+      console.log('尝试降级到分别请求...')
+      const timeout = 5000
+      
+      const [productsResponse, stockResponse, outboundResponse, valueResponse] = await Promise.all([
+        api.get('/products/count', { timeout }),
+        api.get('/products/stock/total', { timeout }), 
+        api.get('/outbound/today', { timeout }),
+        api.get('/products/stock/value', { timeout })
+      ])
+      
+      stats.value.totalProducts = productsResponse.data || 0
+      stats.value.totalStock = stockResponse.data || 0
+      stats.value.todayOutbound = outboundResponse.data || 0
+      stats.value.stockValue = valueResponse.data || 0
+      
+    } catch (fallbackError) {
+      console.error('降级请求也失败:', fallbackError)
+      // 优化：提供更具体的错误信息
+      if (error.code === 'ECONNABORTED') {
+        ElMessage.warning('数据加载超时，请检查网络连接')
+      } else {
+        ElMessage.error('获取统计数据失败')
+      }
+      throw error
+    }
   }
 }
 
@@ -813,12 +836,29 @@ const startAutoRefresh = () => {
     } catch (error) {
       console.error('自动刷新失败:', error)
     }
-  }, 15000) // 每15秒刷新一次，提高数据实时性
+  }, 60000) // 优化：每60秒刷新一次，减少服务器负载
 }
 
 // 组件挂载时获取数据
 onMounted(async () => {
-  await refreshAllData()
+  // 优化：分阶段加载，先加载关键数据
+  try {
+    // 第一阶段：加载基础统计数据（最重要）
+    await fetchStats()
+    
+    // 第二阶段：异步加载其他数据，不阻塞界面
+    Promise.all([
+      fetchAllProducts(),
+      fetchRecentActivities()
+    ]).catch(error => {
+      console.error('加载辅助数据失败:', error)
+    })
+    
+  } catch (error) {
+    console.error('加载基础数据失败:', error)
+    ElMessage.error('数据加载失败，请刷新重试')
+  }
+  
   // 启动定时器更新日期
   updateCurrentDate()
   setInterval(updateCurrentDate, 1000)

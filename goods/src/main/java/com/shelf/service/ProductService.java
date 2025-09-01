@@ -8,6 +8,8 @@ import com.shelf.repository.OutboundRecordRepository;
 import com.shelf.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -144,6 +146,7 @@ public class ProductService {
     /**
      * 保存商品（新增或更新）
      */
+    @CacheEvict(value = {"stats", "products"}, allEntries = true)
     @Transactional
     public ProductDTO saveProduct(ProductDTO productDTO) {
         Product product;
@@ -166,6 +169,7 @@ public class ProductService {
     /**
      * 删除商品
      */
+    @CacheEvict(value = {"stats", "products"}, allEntries = true)
     @Transactional
     public void deleteProduct(Long id) {
         if (!productRepository.existsById(id)) {
@@ -346,36 +350,55 @@ public class ProductService {
     /**
      * 获取商品总数
      */
+    @Cacheable(value = "stats", key = "'productCount'")
     @Transactional(readOnly = true)
     public Long getProductCount() {
         return productRepository.count();
     }
 
     /**
-     * 获取库存总量
+     * 获取库存总量 - 优化版本
      */
+    @Cacheable(value = "stats", key = "'totalStock'")
     @Transactional(readOnly = true)
     public Integer getTotalStock() {
         try {
-            // 优化：使用数据库聚合查询而不是Java Stream计算
+            // 优化：使用批量查询提高性能
             List<Product> products = productRepository.findAll();
             
-            // 批量获取所有商品的入库和出库数据
+            if (products.isEmpty()) {
+                return 0;
+            }
+            
+            // 提取所有商品ID
+            List<Long> productIds = products.stream()
+                    .map(Product::getId)
+                    .collect(Collectors.toList());
+            
+            // 批量获取入库和出库数据
             Map<Long, Integer> inboundMap = new HashMap<>();
             Map<Long, Integer> outboundMap = new HashMap<>();
             
-            for (Product product : products) {
-                Integer inbound = inboundRecordRepository.sumQuantityByProductId(product.getId());
-                Integer outbound = outboundRecordRepository.sumQuantityByProductId(product.getId());
-                inboundMap.put(product.getId(), inbound != null ? inbound : 0);
-                outboundMap.put(product.getId(), outbound != null ? outbound : 0);
+            // 使用批量查询优化性能
+            List<Object[]> inboundData = inboundRecordRepository.sumQuantityByProductIds(productIds);
+            for (Object[] data : inboundData) {
+                Long productId = (Long) data[0];
+                Integer quantity = ((Number) data[1]).intValue();
+                inboundMap.put(productId, quantity);
+            }
+            
+            List<Object[]> outboundData = outboundRecordRepository.sumQuantityByProductIds(productIds);
+            for (Object[] data : outboundData) {
+                Long productId = (Long) data[0];
+                Integer quantity = ((Number) data[1]).intValue();
+                outboundMap.put(productId, quantity);
             }
             
             // 计算总库存
             return products.stream()
                     .mapToInt(product -> {
-                        Integer inbound = inboundMap.get(product.getId());
-                        Integer outbound = outboundMap.get(product.getId());
+                        Integer inbound = inboundMap.getOrDefault(product.getId(), 0);
+                        Integer outbound = outboundMap.getOrDefault(product.getId(), 0);
                         return product.getInitialStock() + inbound - outbound;
                     })
                     .sum();
@@ -386,33 +409,51 @@ public class ProductService {
     }
 
     /**
-     * 获取库存价值
+     * 获取库存价值 - 优化版本
      */
+    @Cacheable(value = "stats", key = "'stockValue'")
     @Transactional(readOnly = true)
     public BigDecimal getStockValue() {
         try {
             List<Product> products = productRepository.findAll();
             
-            // 批量获取所有商品的入库和出库数据
+            if (products.isEmpty()) {
+                return BigDecimal.ZERO;
+            }
+            
+            // 提取所有商品ID
+            List<Long> productIds = products.stream()
+                    .map(Product::getId)
+                    .collect(Collectors.toList());
+            
+            // 批量获取入库和出库数据
             Map<Long, Integer> inboundMap = new HashMap<>();
             Map<Long, Integer> outboundMap = new HashMap<>();
             
-            for (Product product : products) {
-                Integer inbound = inboundRecordRepository.sumQuantityByProductId(product.getId());
-                Integer outbound = outboundRecordRepository.sumQuantityByProductId(product.getId());
-                inboundMap.put(product.getId(), inbound != null ? inbound : 0);
-                outboundMap.put(product.getId(), outbound != null ? outbound : 0);
+            // 使用批量查询优化性能
+            List<Object[]> inboundData = inboundRecordRepository.sumQuantityByProductIds(productIds);
+            for (Object[] data : inboundData) {
+                Long productId = (Long) data[0];
+                Integer quantity = ((Number) data[1]).intValue();
+                inboundMap.put(productId, quantity);
+            }
+            
+            List<Object[]> outboundData = outboundRecordRepository.sumQuantityByProductIds(productIds);
+            for (Object[] data : outboundData) {
+                Long productId = (Long) data[0];
+                Integer quantity = ((Number) data[1]).intValue();
+                outboundMap.put(productId, quantity);
             }
             
             // 计算总价值
             return products.stream()
                     .map(product -> {
-                        Integer inbound = inboundMap.get(product.getId());
-                        Integer outbound = outboundMap.get(product.getId());
+                        Integer inbound = inboundMap.getOrDefault(product.getId(), 0);
+                        Integer outbound = outboundMap.getOrDefault(product.getId(), 0);
                         Integer currentStock = product.getInitialStock() + inbound - outbound;
                         return product.getPrice().multiply(BigDecimal.valueOf(Math.max(0, currentStock)));
                     })
-                    .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
         } catch (Exception e) {
             log.error("获取库存价值失败", e);
             throw new RuntimeException("获取库存价值失败: " + e.getMessage());

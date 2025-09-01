@@ -3,8 +3,8 @@ import { ElMessage } from 'element-plus'
 
 // 重试配置
 const RETRY_CONFIG = {
-  maxRetries: 3,
-  retryDelay: 300, // 300毫秒，减少延迟提高响应速度
+  maxRetries: 2, // 优化：减少重试次数
+  retryDelay: 200, // 优化：减少重试延迟到200毫秒
   retryCondition: (error: any) => {
     // 只对网络错误和超时错误进行重试
     return error.code === 'ECONNABORTED' || 
@@ -16,7 +16,7 @@ const RETRY_CONFIG = {
 // 创建axios实例
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8084/api',
-  timeout: 30000, // 增加到30秒，处理Render免费版冷启动
+  timeout: 8000, // 优化：减少到8秒，提高用户体验
   headers: {
     'Content-Type': 'application/json'
   }
@@ -341,6 +341,34 @@ export const stockAPI = {
       params: { date },
       responseType: 'blob'  // 下载文件需要blob类型
     })
+  }
+}
+
+// 统计数据API - 优化版本
+export const statsAPI = {
+  // 获取仪表盘统计数据（一次性获取所有数据）
+  getDashboardStats: () => {
+    return api.get('/stats/dashboard', { timeout: 8000 })
+  },
+  
+  // 获取商品总数
+  getProductCount: () => {
+    return api.get('/stats/products/count', { timeout: 5000 })
+  },
+  
+  // 获取库存总量
+  getTotalStock: () => {
+    return api.get('/stats/stock/total', { timeout: 5000 })
+  },
+  
+  // 获取库存价值
+  getStockValue: () => {
+    return api.get('/stats/stock/value', { timeout: 5000 })
+  },
+  
+  // 获取今日出库
+  getTodayOutbound: () => {
+    return api.get('/stats/outbound/today', { timeout: 5000 })
   }
 }
 

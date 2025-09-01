@@ -6,6 +6,7 @@ import com.shelf.entity.Product;
 import com.shelf.repository.InboundRecordRepository;
 import com.shelf.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -155,6 +156,7 @@ public class InboundRecordService {
     /**
      * 创建入库记录
      */
+    @CacheEvict(value = "stats", allEntries = true)
     @Transactional
     public InboundRecordDTO createInboundRecord(InboundRecordDTO dto) {
         // 验证商品是否存在
@@ -181,6 +183,7 @@ public class InboundRecordService {
     /**
      * 更新入库记录
      */
+    @CacheEvict(value = "stats", allEntries = true)
     @Transactional
     public InboundRecordDTO updateInboundRecord(InboundRecordDTO dto) {
         // 获取原入库记录
@@ -213,6 +216,8 @@ public class InboundRecordService {
     /**
      * 删除入库记录
      */
+    @CacheEvict(value = "stats", allEntries = true)
+    @Transactional
     public void deleteInboundRecord(Long id) {
         InboundRecord record = inboundRecordRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("入库记录不存在，ID: " + id));

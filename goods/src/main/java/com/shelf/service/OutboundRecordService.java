@@ -6,6 +6,7 @@ import com.shelf.entity.Product;
 import com.shelf.repository.OutboundRecordRepository;
 import com.shelf.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
